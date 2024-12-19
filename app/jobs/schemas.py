@@ -21,3 +21,9 @@ class JobResponseModel(BaseModel):
     is_active: bool
     applicants: List[uuid.UUID] = []
     likedBy: List[uuid.UUID] = []
+
+class JobUpdateModel(BaseModel):
+    title: str
+    description: str
+    category: str
+    type: str

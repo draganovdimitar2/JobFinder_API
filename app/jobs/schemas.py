@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional
 import uuid
 
 
@@ -10,20 +10,20 @@ class JobCreateModel(BaseModel):
     category: str
 
 
-class JobResponseModel(BaseModel):
+class JobResponseModelWithAuthorName(BaseModel):
     uid: uuid.UUID
     title: str
-    description: Optional[str]
+    description: str
     type: str
     likes: int
     category: str
-    author_uid: uuid.UUID  # Include the foreign key in the response
     is_active: bool
-    applicants: List[uuid.UUID] = []
-    likedBy: List[uuid.UUID] = []
+    authorName: str  # This will hold the author's username
+    isLiked: bool
+
 
 class JobUpdateModel(BaseModel):
-    title: str
-    description: str
-    category: str
-    type: str
+    title: Optional[str] = None
+    description: Optional[str] = None
+    category: Optional[str] = None
+    type: Optional[str] = None

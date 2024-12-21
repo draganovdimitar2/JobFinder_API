@@ -1,11 +1,9 @@
 from fastapi.exceptions import HTTPException
-from sqlalchemy.testing.suite.test_reflection import users
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import selectinload
-from .schemas import JobCreateModel, JobResponseModel, JobUpdateModel
-from sqlmodel import select, desc, delete
-from app.db.models import Jobs, JobLikes, Applications, User
-from datetime import datetime
+from .schemas import JobCreateModel, JobUpdateModel
+from sqlmodel import select, delete
+from app.db.models import Jobs, JobLikes, User
 
 
 class JobService:
@@ -28,8 +26,8 @@ class JobService:
 
         return result.all()
 
-    async def get_job(self, job_uid: str, session: AsyncSession):
-        """Fetch a specific job by its UID."""
+    async def get_job_data(self, job_uid: str, session: AsyncSession):
+        """Fetch a specific job by its UID. RESPONSE INCLUDE ALL DATA ABOUT THE JOB"""
         statement = select(Jobs).where(Jobs.uid == job_uid, Jobs.is_active == True)
 
         result = await session.exec(statement)
@@ -38,11 +36,71 @@ class JobService:
 
         return job if job is not None else None  # if job is not none return the job, else return None
 
-    async def get_jobs_by_author_uid(self, author_uid: str, session: AsyncSession):
-        """Fetch jobs associated with a specific author_uid."""
+    async def get_job_by_its_id(self, job_uid: str, user_uid: str, session: AsyncSession):
+        """Fetch a specific job by its UID including author's username and isLiked."""
+        # Query the job
+        statement = select(Jobs).where(Jobs.uid == job_uid, Jobs.is_active == True)
+        result = await session.exec(statement)
+        job = result.first()
+
+        if job is None:
+            raise HTTPException(status_code=404, detail="Job not found")
+
+        job_dict = {
+            "uid": str(job_uid),
+            "title": job.title,
+            "description": job.description,
+            "type": job.type,
+            "likes": job.likes,
+            "category": job.category,
+            "is_active": job.is_active,
+            "isLiked": False  # default value
+        }
+
+        if await self.like_checker(user_uid, job_uid, session):
+            job_dict["isLiked"] = True
+        author_uid = job.author_uid
+        author_username = await self.get_author_name(author_uid, session)
+        job_dict['authorName'] = author_username  # Add the author's username to the response
+
+        return job_dict
+
+    async def get_author_name(self, author_uid: str, session: AsyncSession) -> str:
+        """Fetch the author's username based on author_uid."""
+        statement = select(User.username).where(User.uid == author_uid)
+        result = await session.execute(statement)
+        author = result.scalars().first()  # Get the first matching author
+
+        if author is None:
+            raise HTTPException(status_code=404, detail="Author not found")
+
+        return author  # Return the author's username
+
+    async def get_authors_jobs(self, author_uid: str, session: AsyncSession):
+        """Fetch all jobs associated with a specific author_uid."""
         statement = select(Jobs).where(Jobs.author_uid == author_uid, Jobs.is_active == True)
         result = await session.exec(statement)
-        return result.all()
+        jobs = result.all()
+
+        enriched_jobs = []
+        for job in jobs:
+            # Enrich the job with author name
+            author_username = await self.get_author_name(job.author_uid, session)
+            isLiked = await self.like_checker(author_uid, str(job.uid), session)
+            job_dict = {
+                "uid": str(job.uid),
+                "title": job.title,
+                "description": job.description,
+                "type": job.type,
+                "likes": job.likes,
+                "category": job.category,
+                "is_active": job.is_active,
+                "authorName": author_username,  # Add the author's username
+                "isLiked": isLiked
+            }
+            enriched_jobs.append(job_dict)
+
+        return enriched_jobs
 
     async def get_job_appliciants(self, job_uid: str, session: AsyncSession):
         """Fetch the applicants for a specific job."""
@@ -74,17 +132,16 @@ class JobService:
 
         return None  # Return None if no job found
 
-    async def create_job(self, job_data: JobCreateModel, author_uid: str, session: AsyncSession) -> Jobs:
+    async def create_job(self, job_data: JobCreateModel, author_uid: str, session: AsyncSession) -> dict:
         """Create a new job and return the created job instance."""
         new_job = Jobs(**job_data.dict(), author_uid=author_uid)
         session.add(new_job)
         await session.commit()
         await session.refresh(new_job)
-        return new_job
+        return {"message": "Job offer has been created successfully."}
 
-    async def update_job(self, job_uid: str, update_data: JobUpdateModel, session: AsyncSession):
-
-        job_to_update = await self.get_job(job_uid, session)
+    async def update_job(self, job_uid: str, user_uid: str, update_data: JobUpdateModel, session: AsyncSession):
+        job_to_update = await self.get_job_data(job_uid, session)  # taking all job data
 
         if job_to_update is not None:
             update_data_dict = update_data.model_dump()
@@ -98,20 +155,26 @@ class JobService:
         else:
             return None
 
+    async def like_checker(self, user_uid: str, job_uid: str, session: AsyncSession):
+        """Function to check whether current user has liked the job"""
+        existing_like = await session.exec(  # checks if the user has liked the job
+            select(JobLikes).where(JobLikes.job_id == job_uid, JobLikes.user_id == user_uid)
+        )
+        if existing_like.first() is not None:
+            return True  # if job is already liked by the user
+        return False  # else: return False
+
     async def like_job(self, job_uid: str, user_uid: str, session: AsyncSession):
         """Allow a user to like a job."""
         # Check if the like of the current user already exists
-        job_to_like = await self.get_job(job_uid, session)
-        if not job_to_like:
+        author_name = await self.get_author_name(user_uid, session)
+        job = await self.get_job_by_its_id(job_uid, user_uid, session)
+        if not job:
             raise HTTPException(status_code=404, detail="Job not found!")
-        if str(job_to_like.author_uid) == user_uid:  # check if the user is owner of the job
+        if job["authorName"] == author_name:  # check if the user is owner of the job
             raise HTTPException(status_code=400, detail="You can't like your own job!")
 
-        existing_like = await session.exec(  # checks if the like is already given
-            select(JobLikes).where(JobLikes.job_id == job_uid, JobLikes.user_id == user_uid)
-        )
-
-        if existing_like.first() is not None:
+        if await self.like_checker(user_uid, job_uid, session):  # check whether like is already given
             raise HTTPException(status_code=400, detail="You have already liked this job")
 
         # Add the like
@@ -131,19 +194,16 @@ class JobService:
 
     async def unlike_job(self, job_uid: str, user_uid: str, session: AsyncSession):
         """Allow a user to unlike a job."""
-        job_to_unlike = await self.get_job(job_uid, session)
-        if not job_to_unlike:
+        job = await self.get_job_by_its_id(job_uid, user_uid, session)
+        author_name = await self.get_author_name(user_uid, session)
+        if not job:
             raise HTTPException(status_code=404, detail="Job not found!")
-
-        if str(job_to_unlike.author_uid) == user_uid:  # check if the user is the owner of the job
+        if job["authorName"] == author_name:  # check if the user is the owner of the job
             raise HTTPException(status_code=400, detail="You can't unlike your own job!")
-        # Check if the like exists
-        existing_like_query = select(JobLikes).where(JobLikes.job_id == job_uid, JobLikes.user_id == user_uid)
-        existing_like = await session.exec(existing_like_query)
 
-        like_to_remove = existing_like.first()  # fetch the first result
-        if not like_to_remove:
-            raise HTTPException(status_code=404, detail="You have not liked this job.")
+        # Check if the like exists
+        if not await self.like_checker(user_uid, job_uid, session):  # check whether like is already given
+            raise HTTPException(status_code=400, detail="Trying to dislike a job that you haven't like yet!")
 
         # Proceed to delete the like
         await session.execute(delete(JobLikes).where(JobLikes.job_id == job_uid, JobLikes.user_id == user_uid))

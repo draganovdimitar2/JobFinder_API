@@ -4,7 +4,6 @@ from app.config import Config
 import jwt
 import uuid
 import logging
-from itsdangerous import URLSafeTimedSerializer
 
 passwd_context = CryptContext(
     schemes=['bcrypt']  # list of the algorithm used to hash the password

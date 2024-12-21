@@ -2,7 +2,7 @@ from fastapi.exceptions import HTTPException
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import selectinload
 from .schemas import JobCreateModel, JobUpdateModel
-from sqlmodel import select, delete
+from sqlmodel import select, delete, update
 from app.db.models import Jobs, JobLikes, User
 
 
@@ -27,8 +27,18 @@ class JobService:
         return result.all()
 
     async def get_job_data(self, job_uid: str, session: AsyncSession):
-        """Fetch a specific job by its UID. RESPONSE INCLUDE ALL DATA ABOUT THE JOB"""
+        """Fetch a specific ACTIVE job by its UID. RESPONSE INCLUDE ALL DATA ABOUT THE ACTIVE JOB"""
         statement = select(Jobs).where(Jobs.uid == job_uid, Jobs.is_active == True)
+
+        result = await session.exec(statement)
+
+        job = result.first()
+
+        return job if job is not None else None  # if job is not none return the job, else return None
+
+    async def get_inactive_job_data(self, job_uid: str, session: AsyncSession):
+        """Fetch a specific INACTIVE job by its UID. RESPONSE INCLUDE ALL DATA ABOUT THE INACTIVE JOB"""
+        statement = select(Jobs).where(Jobs.uid == job_uid, Jobs.is_active == False)
 
         result = await session.exec(statement)
 
@@ -215,3 +225,19 @@ class JobService:
         await session.commit()
 
         return {"detail": "Job unliked successfully."}
+
+    async def deactivate_job(self, job_uid: str, session: AsyncSession):
+        """Deactivate a job by its uid."""
+        job = await self.get_job_data(job_uid, session)
+        job.is_active = False
+        session.add(job)
+        await session.commit()
+        return {"message": "Job deactivated successfully"}
+
+    async def activate_job(self, job_uid: str, session: AsyncSession):
+        """Activate a job by its uid."""
+        job = await self.get_inactive_job_data(job_uid, session)
+        job.is_active = True
+        session.add(job)
+        await session.commit()
+        return {"message": "Job activated successfully"}

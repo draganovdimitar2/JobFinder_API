@@ -1,4 +1,5 @@
 from fastapi.exceptions import HTTPException
+from pygments.lexer import default
 from sqlmodel.ext.asyncio.session import AsyncSession
 from app.db.main import get_session
 from app.jobs.service import JobService
@@ -58,8 +59,7 @@ async def update_job(job_uid: str,
     if not job_to_update:
         raise HTTPException(status_code=404, detail="Job not found")
     # check if the author(org) is updating his own jobs, otherwise raise an exception
-    if str(job_to_update[
-               'authorName']) != username:  # conv to str because first is UUID type and second is str (otherwise our check will always fail)
+    if job_to_update['authorName'] != username:
         raise HTTPException(status_code=403, detail="You are not authorized to update this job!")
 
     if role.lower() != 'organization':  # checks if user is trying to update org jobs
@@ -132,3 +132,43 @@ async def unlike_job(job_uid: str,
     """
     user_uid = token_details['user']['uid']
     return await job_service.unlike_job(job_uid, user_uid, session)
+
+
+@job_router.patch('/jobs/{job_uid}/deactivate')
+async def deactivate_job(job_uid: str,
+                         session: AsyncSession = Depends(get_session),
+                         token_details: dict = Depends(access_token_bearer)):
+    """
+    Endpoint to deactivate a job by it's uid.
+    """
+    user_uid = token_details['user']['uid']
+    role = token_details['user']['role']
+    username = token_details['user']['username']
+    if role.lower() != 'organization':  # if user is trying to deactivate a job
+        raise HTTPException(status_code=403, detail="You are not authorized to deactivate jobs.")
+
+    job = await job_service.get_job_by_its_id(job_uid, user_uid, session)
+    if job['authorName'] != username:  # if job is posted from another user (org)
+        raise HTTPException(status_code=403, detail="You are not authorized to deactivate this job!")
+
+    return await job_service.deactivate_job(job_uid, session)
+
+
+@job_router.patch('/jobs/{job_uid}/activate')
+async def activate_job(job_uid: str,
+                         session: AsyncSession = Depends(get_session),
+                         token_details: dict = Depends(access_token_bearer)):
+    """
+    Endpoint to activate a job by it's uid.
+    """
+    role = token_details['user']['role']
+    user_uid = token_details['user']['uid']
+    if role.lower() != 'organization':  # if user is trying to activate a job
+        raise HTTPException(status_code=403, detail="You are not authorized to activate jobs.")
+
+    job = await job_service.get_inactive_job_data(job_uid, session)
+    if str(job.author_uid) != user_uid:  # if job is posted from another user (org). Conv author_uid to str because it is from type UUID.
+        raise HTTPException(status_code=403, detail="You are not authorized to deactivate this job!")
+
+
+    return await job_service.activate_job(job_uid, session)

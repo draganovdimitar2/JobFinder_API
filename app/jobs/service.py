@@ -13,7 +13,26 @@ class JobService:
 
         result = await session.exec(statement)
 
-        return result.all()
+        all_jobs = result.all()
+
+        list_storing_all_jobs = []
+        for job in all_jobs:  # for each job we get its authorName and check if current user has liked the job
+            authorName = await self.get_author_name(job.author_uid, session)
+            isLiked = await self.like_checker(job.author_uid, str(job.uid), session)
+            job_response_dict = {
+                "uid": str(job.uid),
+                "title": job.title,
+                "description": job.description,
+                "type": job.type,
+                "likes": job.likes,
+                "category": job.category,
+                "is_active": job.is_active,
+                "authorName": authorName,  # Add the author's username
+                "isLiked": isLiked
+            }
+            list_storing_all_jobs.append(job_response_dict)
+
+        return list_storing_all_jobs
 
     async def get_organization_jobs(self, organization_uid: str, session: AsyncSession):
         """Fetch all active jobs for a specific organization."""
@@ -226,6 +245,24 @@ class JobService:
 
         return {"detail": "Job unliked successfully."}
 
+    async def get_liked_jobs(self, user_uid: str, session: AsyncSession):
+        """Fetch all liked jobs from current user"""
+        statement = select(JobLikes).where(JobLikes.user_id == user_uid)  # fetch liked jobs uid
+
+        result = await session.exec(statement)
+
+        all_liked_jobs_by_user = result.all()
+
+        all_liked_jobs_list = []
+
+        for job_id in all_liked_jobs_by_user:  # iterate through liked job id's
+            job_uid = job_id.job_id
+            job = await self.get_job_by_its_id(job_uid, user_uid, session)  # fetch the job by its id
+            all_liked_jobs_list.append(job)
+
+        return all_liked_jobs_list
+
+
     async def deactivate_job(self, job_uid: str, session: AsyncSession):
         """Deactivate a job by its uid."""
         job = await self.get_job_data(job_uid, session)
@@ -241,3 +278,11 @@ class JobService:
         session.add(job)
         await session.commit()
         return {"message": "Job activated successfully"}
+
+    async def delete_job(self, job_uid: str, session: AsyncSession):
+        """Delete a job by its uid."""
+        # we have to make sure that likes are deleted for this job, otherwise we will got an IntegrityError, cause jobLikes relationship is many-to-many with jobs.
+        await session.exec(delete(JobLikes).where(JobLikes.job_id == job_uid))  # ensures that likes are deleted
+        await session.exec(delete(Jobs).where(Jobs.uid == job_uid))  # then delete the job from db
+        await session.commit()
+        return {"message": "Job deleted successfully"}

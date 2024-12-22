@@ -42,6 +42,20 @@ async def create_job(
     return await job_service.create_job(job_data, author_uid, session)
 
 
+@job_router.get('/jobs')
+async def get_all_jobs(
+        session: AsyncSession = Depends(get_session),
+        _: dict = Depends(access_token_bearer)
+) -> list:
+    """
+    Endpoint to fetch all ACTIVE jobs.
+    """
+    try:
+        return await job_service.get_all_jobs(session)
+    except Exception:
+        raise HTTPException(status_code=500, detail="An error occurred while trying to fetch all jobs")
+
+
 @job_router.patch('/jobs/{job_uid}', response_model=JobResponseModelWithAuthorName)
 async def update_job(job_uid: str,
                      job_update_data: JobUpdateModel,
@@ -71,16 +85,6 @@ async def update_job(job_uid: str,
                                                       session)  # Using second await to hide some job data in the response
 
     return updated_job
-
-
-# @job_router.get('/jobs/{job_uid}', response_model=JobResponseModel)
-# async def get_job(job_uid: str,
-#                   session: AsyncSession = Depends(get_session),
-#                   _: dict = Depends(access_token_bearer)) -> JobResponseModel:
-#     try:
-#         return await job_service.get_job(job_uid, session)
-#     except Exception as e:
-#         raise HTTPException(status_code=404, detail=e)
 
 
 @job_router.get('/jobs/{job_uid}', response_model=JobResponseModelWithAuthorName)
@@ -156,8 +160,8 @@ async def deactivate_job(job_uid: str,
 
 @job_router.patch('/jobs/{job_uid}/activate')
 async def activate_job(job_uid: str,
-                         session: AsyncSession = Depends(get_session),
-                         token_details: dict = Depends(access_token_bearer)):
+                       session: AsyncSession = Depends(get_session),
+                       token_details: dict = Depends(access_token_bearer)):
     """
     Endpoint to activate a job by it's uid.
     """
@@ -170,5 +174,36 @@ async def activate_job(job_uid: str,
     if str(job.author_uid) != user_uid:  # if job is posted from another user (org). Conv author_uid to str because it is from type UUID.
         raise HTTPException(status_code=403, detail="You are not authorized to deactivate this job!")
 
-
     return await job_service.activate_job(job_uid, session)
+
+
+@job_router.delete('/jobs/{job_uid}')
+async def delete_job(job_uid: str,
+                     session: AsyncSession = Depends(get_session),
+                     token_details: dict = Depends(access_token_bearer)) -> dict:
+    role = token_details['user']['role']
+    user_uid = token_details['user']['uid']
+    username = token_details['user']['username']
+    if role.lower() != 'organization':  # if user is trying to delete a job
+        raise HTTPException(status_code=403, detail="You are not authorized to delete jobs.")
+    job_author_username = await job_service.get_author_name(user_uid, session)
+    if job_author_username != username:  # checks whether authorized user is trying to delete his own job, if not raise an exception
+        raise HTTPException(status_code=403, detail="You are not authorized to delete this job!")
+
+    try:
+        return await job_service.delete_job(job_uid,
+                                            session)  # if the deletion is done we will get an successful message
+    except Exception as e:  # otherwise raise an exception
+        raise HTTPException(status_code=500, detail=e)
+
+
+@job_router.get('/favourites')
+async def get_all_liked_jobs(
+        session: AsyncSession = Depends(get_session),
+        token_details: dict = Depends(access_token_bearer)
+) -> list:
+    user_uid = token_details['user']['uid']
+    try:
+        return await job_service.get_liked_jobs(user_uid, session)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

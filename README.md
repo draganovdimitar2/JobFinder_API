@@ -62,11 +62,18 @@ Ensure you have the following installed:
 3. Create and activate a virtual environment:
     ```bash
     python3 -m venv env
+    ```
+    * for powershell
+    ```bash
+    env\Scripts\activate
+    ```
+    * for linux/os
+    ```bash
     source env/bin/activate
     ```
 4. Install dependencies:
     ```bash
-    pip install -r requirements.txt
+    pip install -r requirements.txt && pip install "fastapi[standard]"
     ```
 5. Run database migrations to initialize the database schema:
     ```bash

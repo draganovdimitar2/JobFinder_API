@@ -18,7 +18,7 @@ user_service = UserService()
 role_checker = RoleChecker(['organization', 'user'])  # allowed roles
 
 
-@auth_router.post('/registration')
+@auth_router.post('/auth/registration')
 async def registration(user_data: UserCreateModel,
                        session: AsyncSession = Depends(get_session)):  # Ensure the user is authenticated
 
@@ -45,7 +45,7 @@ async def registration(user_data: UserCreateModel,
     return {"message": "User registered successfully", "user": new_user}
 
 
-@auth_router.post('/login')
+@auth_router.post('/auth/login')
 async def login(login_data: UserLoginModel, session: AsyncSession = Depends(get_session)):
     email = login_data.email
     password = login_data.password

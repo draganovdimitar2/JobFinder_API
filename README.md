@@ -73,7 +73,7 @@ Ensure you have the following installed:
     ```
 4. Install dependencies:
     ```bash
-    pip install -r requirements.txt && pip install "fastapi[standard]"
+    pip install -r requirements.txt "fastapi[standard]"
     ```
 5. Run database migrations to initialize the database schema:
     ```bash

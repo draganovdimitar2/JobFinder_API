@@ -55,43 +55,23 @@ class TokenBearer(HTTPBearer):  # Base Class for Token Validation
 class CustomTokenBearer(TokenBearer):
 
     def verify_token_data(self, token_data: dict) -> None:
-        # checks if the token_data dictionary contains a key named 'user'
-        if 'user' not in token_data:
-            raise HTTPException(
-                status_code=403,
-                detail="Invalid token: User data missing."
-            )  # if the 'user' key is missing, it indicates that the token is invalid or has been tampered with
-
-        # Without knowing the user's role, the application cannot make informed decisions about what actions the user is allowed to perform
-        if 'role' not in token_data[
-            'user']:  # checks if the user dictionary within token_data contains a key named 'role'
-            raise HTTPException(
-                status_code=403,
-                detail="Invalid token: Role missing in user data."
-            )  # If the 'role' key is missing, it implies that the token lacks important authorization information
+        user_data = token_data.get('user')
+        if not user_data or 'role' not in user_data:
+            raise HTTPException(status_code=403, detail="Invalid token: Missing user or role data.")
 
 
 async def get_current_user(
         token_details: dict = Depends(CustomTokenBearer()),
         session: AsyncSession = Depends(get_session)
 ):
-    # Ensure 'user' exists in token_details
-    if 'user' not in token_details:
-        raise HTTPException(
-            status_code=403,
-            detail="Invalid token: User data missing."
-        )
+    user_data = token_details.get('user')
+    if not user_data:
+        raise HTTPException(status_code=403, detail="Invalid token: User data missing.")
 
-    user_uid = token_details['user']['uid']
-
+    user_uid = user_data['uid']
     user = await user_service.get_user_by_uid(user_uid, session)
-
-    # Ensure the user exists
-    if user is None:
-        raise HTTPException(
-            status_code=404,
-            detail="User not found."
-        )
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
 
     return user
 
@@ -103,7 +83,7 @@ class RoleChecker:
 
     def __call__(self, current_user: User = Depends(
         get_current_user)):
-        if current_user.role in self.allowed_roles:  # check if the user’s role is valid
+        if current_user.role.upper() in [role.upper() for role in self.allowed_roles]:
             return True  # indicating the user has permission
 
         raise HTTPException(

@@ -23,8 +23,8 @@ class User(SQLModel, table=True):
     role: str = Field(sa_column=Column(
         pg.VARCHAR, nullable=False, server_default='user'
     ))
-    first_name: Optional[str] = Field(default=None)
-    last_name: Optional[str] = Field(default=None)
+    firstName: Optional[str] = Field(default=None)
+    lastName: Optional[str] = Field(default=None)
     # Relationships (lazy='selectin' argument optimizes query performance)
     applications: List['Applications'] = Relationship(back_populates='user', sa_relationship_kwargs={
         'lazy': 'selectin'})  # A user can submit multiple job applications. (one-to-many relationship)

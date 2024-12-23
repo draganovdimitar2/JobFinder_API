@@ -20,7 +20,7 @@ from fastapi import (
 
 job_service = JobService()
 job_router = APIRouter()
-organization_checker = Depends(RoleChecker(['organization']))
+organization_checker = Depends(RoleChecker(['ORGANIZATION']))
 access_token_bearer = CustomTokenBearer()  # to requre authentication on each request
 
 
@@ -110,7 +110,7 @@ async def get_authors_jobs(
     user_uid = token_details['user']['uid']
     role = token_details['user']['role']
 
-    if role != 'organization':
+    if role.lower() != 'organization':  # making role lower cause some org are uppercase in db
         raise HTTPException(status_code=403, detail="You are not authorized to view these jobs.")
 
     return await job_service.get_authors_jobs(user_uid, session)

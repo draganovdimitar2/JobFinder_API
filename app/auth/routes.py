@@ -6,7 +6,9 @@ from app.db.main import get_session
 from app.auth.service import UserService
 from app.auth.dependencies import RoleChecker
 from .security import verify_password, create_access_token
+import logging
 
+logger = logging.getLogger("auth")
 from fastapi import (
     APIRouter,
     Depends,
@@ -15,7 +17,7 @@ from fastapi import (
 
 auth_router = APIRouter()
 user_service = UserService()
-role_checker = RoleChecker(['organization', 'user'])  # allowed roles
+role_checker = RoleChecker(['ORGANIZATION', 'USER'])  # allowed roles
 
 
 @auth_router.post('/auth/registration')
@@ -23,7 +25,7 @@ async def registration(user_data: UserCreateModel,
                        session: AsyncSession = Depends(get_session)):  # Ensure the user is authenticated
 
     # Check if the role is valid before proceeding with user registration
-    allowed_roles = ['organization', 'user']  # Define allowed roles here
+    allowed_roles = ['ORGANIZATION', 'USER']  # Define allowed roles here
     if user_data.role not in allowed_roles:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -47,34 +49,38 @@ async def registration(user_data: UserCreateModel,
 
 @auth_router.post('/auth/login')
 async def login(login_data: UserLoginModel, session: AsyncSession = Depends(get_session)):
-    email = login_data.email
+    credential = login_data.username
     password = login_data.password
 
-    user = await user_service.get_user_by_email(email, session)  # to check if user exists (checks usernames from db)
+    user = await user_service.get_user_by_credential(credential, session)
 
-    if user:  # if user exists
-        password_valid = verify_password(password,
-                                         user.password_hash)  # check if the password matches the password in our database
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials"
+        )
 
-        if password_valid:
-            access_token = create_access_token(
-                user_data={
-                    'uid': str(user.uid),  # using str to serialize the UUID
-                    'username': user.username,
-                    'role': user.role
-                }
-            )
+    password_valid = verify_password(password, user.password_hash)
+    if not password_valid:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials"
+        )
 
-            return JSONResponse(
-                content={
-                    "message": "Login successful!",
-                    "access_token": access_token,
-                    "user": {
-                        "email": user.email,
-                        "uid": str(user.uid),  # using str to serialize the UUID
-                        'role': user.role
-                    }
-                }
-            )
+    access_token = create_access_token({
+        'uid': str(user.uid),
+        'username': user.username,
+        'role': user.role
+    })
 
-    raise status.HTTP_401_UNAUTHORIZED(detail="Invalid credentials")
+    return JSONResponse(
+        content={
+            "message": "Login successful!",
+            "access_token": access_token,
+            "user": {
+                "email": user.email,
+                "uid": str(user.uid),
+                'role': user.role
+            }
+        }
+    )

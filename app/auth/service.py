@@ -16,6 +16,16 @@ class UserService:
 
         return user
 
+    async def get_user_by_credential(self, credential: str,
+                                        session: AsyncSession):
+        statement = select(User).where((User.username == credential) | (User.email == credential))
+
+        result = await session.exec(statement)
+
+        user = result.first()
+
+        return user
+
     async def get_user_by_uid(self, user_uid: str,
                               session: AsyncSession):  # func used to get the current user from the token
         statement = select(User).where(User.uid == user_uid)
@@ -26,8 +36,8 @@ class UserService:
 
         return user
 
-    async def user_exists(self, email, session: AsyncSession):
-        user = await self.get_user_by_email(email, session)
+    async def user_exists(self, credential: str, session: AsyncSession):
+        user = await self.get_user_by_credential(credential, session)
 
         return True if user is not None else False
 

@@ -2,7 +2,7 @@ from fastapi.exceptions import HTTPException
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import selectinload
 from .schemas import JobCreateModel, JobUpdateModel
-from sqlmodel import select, delete, update
+from sqlmodel import select, delete
 from app.db.models import Jobs, JobLikes, User
 
 
@@ -279,10 +279,22 @@ class JobService:
         await session.commit()
         return {"message": "Job activated successfully"}
 
-    async def delete_job(self, job_uid: str, session: AsyncSession):
-        """Delete a job by its uid."""
-        # we have to make sure that likes are deleted for this job, otherwise we will got an IntegrityError, cause jobLikes relationship is many-to-many with jobs.
-        await session.exec(delete(JobLikes).where(JobLikes.job_id == job_uid))  # ensures that likes are deleted
-        await session.exec(delete(Jobs).where(Jobs.uid == job_uid))  # then delete the job from db
+    async def delete_job(self, job_uid: str, current_user_uid: str, session: AsyncSession):
+        """Fetch and delete a job if the current user is the author."""
+        # Query the job by its UID
+        query = select(Jobs).where(Jobs.uid == job_uid)
+        result = await session.execute(query)
+        job = result.scalar_one_or_none()
+
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+
+        # Check if the current user is the author of the job
+        if job.author_uid != current_user_uid:
+            raise HTTPException(status_code=403, detail="You do not have permission to delete this job")
+
+        # Delete the job and commit the transaction
+        await session.delete(job)
         await session.commit()
-        return {"message": "Job deleted successfully"}
+
+        return {"detail": "Job deleted successfully"}

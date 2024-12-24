@@ -1,6 +1,7 @@
 from datetime import timedelta, datetime
 from passlib.context import CryptContext
 from app.config import Config
+from typing import List
 import jwt
 import uuid
 import logging
@@ -23,11 +24,13 @@ def verify_password(password: str, hash: str) -> bool:  # used for log in to ver
     return passwd_context.verify(password, hash)
 
 
-def create_access_token(user_data: dict, expiry: timedelta = None) -> str:
+def create_access_token(user: dict, expiry: timedelta = None) -> str:
     payload = {
-        'user': user_data,
-        'exp': datetime.now() + (expiry if expiry is not None else timedelta(minutes=60)),
-        'jti': str(uuid.uuid4())
+        'id': user.get('uid'),
+        'roles': user.get('role', []),
+        'userName': user.get('username'),
+        'iat': int(datetime.now().timestamp()),
+        'exp': int((datetime.now() + (expiry if expiry is not None else timedelta(minutes=60))).timestamp())
     }
 
     token = jwt.encode(

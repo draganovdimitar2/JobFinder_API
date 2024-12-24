@@ -70,17 +70,7 @@ async def login(login_data: UserLoginModel, session: AsyncSession = Depends(get_
     access_token = create_access_token({
         'uid': str(user.uid),
         'username': user.username,
-        'role': user.role
+        'role': [user.role]
     })
 
-    return JSONResponse(
-        content={
-            "message": "Login successful!",
-            "access_token": access_token,
-            "user": {
-                "email": user.email,
-                "uid": str(user.uid),
-                'role': user.role
-            }
-        }
-    )
+    return JSONResponse(content={"token": access_token})

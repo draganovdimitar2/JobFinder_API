@@ -1,11 +1,12 @@
 from fastapi.exceptions import HTTPException
-from pygments.lexer import default
 from sqlmodel.ext.asyncio.session import AsyncSession
 from app.db.main import get_session
 from app.jobs.service import JobService
+from app.db.models import User
 from typing import List
 from app.auth.dependencies import (
     RoleChecker,
+    get_current_user,
     CustomTokenBearer
 )
 from app.jobs.schemas import (
@@ -33,8 +34,8 @@ async def create_job(
     """
     Endpoint to create a new job listing.
     """
-    author_uid = token_details['user']['uid']
-    role = token_details['user']['role']
+    author_uid = token_details['id']
+    role = token_details['roles'][0]
     if not author_uid:
         raise HTTPException(status_code=400, detail="Invalid token: author_uid missing")
     if role.lower() != 'organization':
@@ -65,9 +66,9 @@ async def update_job(job_uid: str,
     """
     Endpoint to update a job. Only organizations can update their own jobs.
     """
-    role = token_details['user']['role']
-    user_uid = token_details['user']['uid']
-    username = token_details['user']['username']
+    role = token_details['roles'][0]
+    user_uid = token_details['id']
+    username = token_details['userName']
 
     job_to_update = await job_service.get_job_by_its_id(job_uid, user_uid, session)
     if not job_to_update:
@@ -94,7 +95,7 @@ async def get_job_by_its_id(job_uid: str,
     """
     Fetch a specific job by its UID including author's username and isLiked.
     """
-    user_uid = token_details['user']['uid']
+    user_uid = token_details['id']
     job_data = await job_service.get_job_by_its_id(job_uid, user_uid, session)
     return job_data
 
@@ -107,8 +108,8 @@ async def get_authors_jobs(
     """
     Endpoint to fetch all jobs by a specific author UID. Including everything (likes, author_uid, active status and so on..).
     """
-    user_uid = token_details['user']['uid']
-    role = token_details['user']['role']
+    user_uid = token_details['id']
+    role = token_details['roles'][0]
 
     if role.lower() != 'organization':  # making role lower cause some org are uppercase in db
         raise HTTPException(status_code=403, detail="You are not authorized to view these jobs.")
@@ -123,7 +124,7 @@ async def like_job(job_uid: str,
     """
     Endpoint to like a specific job.
     """
-    user_uid = token_details['user']['uid']
+    user_uid = token_details['id']
     return await job_service.like_job(job_uid, user_uid, session)
 
 
@@ -134,7 +135,7 @@ async def unlike_job(job_uid: str,
     """
     Endpoint to unlike a specific job.
     """
-    user_uid = token_details['user']['uid']
+    user_uid = token_details['id']
     return await job_service.unlike_job(job_uid, user_uid, session)
 
 
@@ -145,9 +146,9 @@ async def deactivate_job(job_uid: str,
     """
     Endpoint to deactivate a job by it's uid.
     """
-    user_uid = token_details['user']['uid']
-    role = token_details['user']['role']
-    username = token_details['user']['username']
+    user_uid = token_details['id']
+    role = token_details['roles'][0]
+    username = token_details['userName']
     if role.lower() != 'organization':  # if user is trying to deactivate a job
         raise HTTPException(status_code=403, detail="You are not authorized to deactivate jobs.")
 
@@ -165,8 +166,8 @@ async def activate_job(job_uid: str,
     """
     Endpoint to activate a job by it's uid.
     """
-    role = token_details['user']['role']
-    user_uid = token_details['user']['uid']
+    role = token_details['roles'][0]
+    user_uid = token_details['id']
     if role.lower() != 'organization':  # if user is trying to activate a job
         raise HTTPException(status_code=403, detail="You are not authorized to activate jobs.")
 
@@ -177,24 +178,20 @@ async def activate_job(job_uid: str,
     return await job_service.activate_job(job_uid, session)
 
 
-@job_router.delete('/jobs/{job_uid}')
-async def delete_job(job_uid: str,
-                     session: AsyncSession = Depends(get_session),
-                     token_details: dict = Depends(access_token_bearer)) -> dict:
-    role = token_details['user']['role']
-    user_uid = token_details['user']['uid']
-    username = token_details['user']['username']
-    if role.lower() != 'organization':  # if user is trying to delete a job
-        raise HTTPException(status_code=403, detail="You are not authorized to delete jobs.")
-    job_author_username = await job_service.get_author_name(user_uid, session)
-    if job_author_username != username:  # checks whether authorized user is trying to delete his own job, if not raise an exception
-        raise HTTPException(status_code=403, detail="You are not authorized to delete this job!")
-
-    try:
-        return await job_service.delete_job(job_uid,
-                                            session)  # if the deletion is done we will get an successful message
-    except Exception as e:  # otherwise raise an exception
-        raise HTTPException(status_code=500, detail=e)
+@job_router.delete("/jobs/{job_uid}")
+async def delete_job(
+        job_uid: str,
+        session: AsyncSession = Depends(get_session),
+        current_user: User = Depends(get_current_user)
+):
+    """
+    Endpoint to delete a job by it's uid.
+    """
+    return await job_service.delete_job(
+        job_uid=job_uid,
+        current_user_uid=current_user.uid,
+        session=session
+    )
 
 
 @job_router.get('/favourites')
@@ -202,7 +199,7 @@ async def get_all_liked_jobs(
         session: AsyncSession = Depends(get_session),
         token_details: dict = Depends(access_token_bearer)
 ) -> list:
-    user_uid = token_details['user']['uid']
+    user_uid = token_details['id']
     try:
         return await job_service.get_liked_jobs(user_uid, session)
     except Exception as e:

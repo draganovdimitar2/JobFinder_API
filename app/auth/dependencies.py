@@ -4,7 +4,6 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from typing import List
 from app.db.models import User
 from app.db.main import get_session
-from app.db.blocklist import token_in_blocklist
 from .service import UserService
 from .security import decode_token
 
@@ -31,12 +30,6 @@ class TokenBearer(HTTPBearer):  # Base Class for Token Validation
                 detail="Authorization token is invalid."
             )
 
-        if await token_in_blocklist(token_data['jti']):
-            raise HTTPException(
-                status_code=403,
-                detail="Authorization token is invalid."
-            )
-
         self.verify_token_data(token_data)
 
         return token_data
@@ -55,20 +48,23 @@ class TokenBearer(HTTPBearer):  # Base Class for Token Validation
 class CustomTokenBearer(TokenBearer):
 
     def verify_token_data(self, token_data: dict) -> None:
-        user_data = token_data.get('user')
-        if not user_data or 'role' not in user_data:
-            raise HTTPException(status_code=403, detail="Invalid token: Missing user or role data.")
+
+        if not token_data:  # if token is not found
+            raise HTTPException(status_code=401, detail="Token missing!")
+        if not token_data['roles']:  # if user role can't be found in token
+            raise HTTPException(status_code=401, detail="Invalid token: Missing user or role data.")
+        if token_data['exp'] - token_data['iat'] <= 0:  # if token time has passed
+            raise HTTPException(status_code=401, detail="Token has expired, please login again.")
 
 
 async def get_current_user(
         token_details: dict = Depends(CustomTokenBearer()),
         session: AsyncSession = Depends(get_session)
 ):
-    user_data = token_details.get('user')
-    if not user_data:
+    if not token_details:
         raise HTTPException(status_code=403, detail="Invalid token: User data missing.")
 
-    user_uid = user_data['uid']
+    user_uid = token_details['id']
     user = await user_service.get_user_by_uid(user_uid, session)
     if not user:
         raise HTTPException(status_code=404, detail="User not found.")

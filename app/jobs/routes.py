@@ -125,6 +125,16 @@ async def like_job(job_uid: str,
     Endpoint to like a specific job.
     """
     user_uid = token_details['id']
+
+    job_data = await job_service.get_job_data(job_uid, session)
+    job_author_uid = job_data.author_uid
+
+    if str(job_author_uid) == user_uid:  # check if the user is owner of the job
+        raise HTTPException(status_code=400, detail="You can't like your own job!")
+
+    if await job_service.like_checker(user_uid, job_uid, session):  # check whether like is already given
+        raise HTTPException(status_code=400, detail="You have already liked this job")
+
     return await job_service.like_job(job_uid, user_uid, session)
 
 
@@ -136,6 +146,16 @@ async def unlike_job(job_uid: str,
     Endpoint to unlike a specific job.
     """
     user_uid = token_details['id']
+
+    job_data = await job_service.get_job_data(job_uid, session)
+    job_author_uid = job_data.author_uid
+
+    if str(job_author_uid) == user_uid:  # check if the user is owner of the job
+        raise HTTPException(status_code=400, detail="You can't unlike your own job!")
+
+    if not await job_service.like_checker(user_uid, job_uid, session):  # check whether like is already given
+        raise HTTPException(status_code=400, detail="Trying to dislike a job that you haven't like yet!")
+
     return await job_service.unlike_job(job_uid, user_uid, session)
 
 

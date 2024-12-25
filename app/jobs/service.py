@@ -195,16 +195,9 @@ class JobService:
 
     async def like_job(self, job_uid: str, user_uid: str, session: AsyncSession):
         """Allow a user to like a job."""
-        # Check if the like of the current user already exists
-        author_name = await self.get_author_name(user_uid, session)
         job = await self.get_job_by_its_id(job_uid, user_uid, session)
-        if not job:
-            raise HTTPException(status_code=404, detail="Job not found!")
-        if job["authorName"] == author_name:  # check if the user is owner of the job
-            raise HTTPException(status_code=400, detail="You can't like your own job!")
-
-        if await self.like_checker(user_uid, job_uid, session):  # check whether like is already given
-            raise HTTPException(status_code=400, detail="You have already liked this job")
+        if not job:  # if job is not found
+            raise HTTPException(status_code=404, detail="Job is not found!")
 
         # Add the like
         new_like = JobLikes(user_id=user_uid, job_id=job_uid)
@@ -224,15 +217,8 @@ class JobService:
     async def unlike_job(self, job_uid: str, user_uid: str, session: AsyncSession):
         """Allow a user to unlike a job."""
         job = await self.get_job_by_its_id(job_uid, user_uid, session)
-        author_name = await self.get_author_name(user_uid, session)
         if not job:
             raise HTTPException(status_code=404, detail="Job not found!")
-        if job["authorName"] == author_name:  # check if the user is the owner of the job
-            raise HTTPException(status_code=400, detail="You can't unlike your own job!")
-
-        # Check if the like exists
-        if not await self.like_checker(user_uid, job_uid, session):  # check whether like is already given
-            raise HTTPException(status_code=400, detail="Trying to dislike a job that you haven't like yet!")
 
         # Proceed to delete the like
         await session.execute(delete(JobLikes).where(JobLikes.job_id == job_uid, JobLikes.user_id == user_uid))
@@ -262,7 +248,6 @@ class JobService:
 
         return all_liked_jobs_list
 
-
     async def deactivate_job(self, job_uid: str, session: AsyncSession):
         """Deactivate a job by its uid."""
         job = await self.get_job_data(job_uid, session)
@@ -281,6 +266,12 @@ class JobService:
 
     async def delete_job(self, job_uid: str, current_user_uid: str, session: AsyncSession):
         """Fetch and delete a job if the current user is the author."""
+        statement = select(JobLikes).where(JobLikes.user_id == current_user_uid)
+        result = await session.exec(statement)
+        job_likes = result.all()  # Get all related JobLikes
+
+        for job_like in job_likes:  # iterate through each like and delete it
+            await session.delete(job_like)
         # Query the job by its UID
         query = select(Jobs).where(Jobs.uid == job_uid)
         result = await session.execute(query)

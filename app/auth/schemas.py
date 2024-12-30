@@ -6,8 +6,8 @@ class UserCreateModel(BaseModel):  # registration Model
     username: str
     password: str
     email: str
-    firstName: Optional[str] = None
-    lastName: Optional[str] = None
+    firstName: Optional[str] = ""
+    lastName: Optional[str] = ""
     role: Optional[str] = 'USER'  # Default role if not provided
 
 

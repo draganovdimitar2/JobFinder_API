@@ -33,13 +33,20 @@ async def registration(user_data: UserCreateModel,
         )
 
     email = user_data.email  # user's email
+    username = user_data.username
 
-    user_exists = await user_service.user_exists(email, session)  # return a bool based on if user exists or not
+    user_email_exists = await user_service.user_exists(email, session)  # return a bool based on if user email already exists or not
+    username_exists = await user_service.user_exists(username, session)  # return a bool based on if username already exists or not
 
-    if user_exists:
+    if user_email_exists:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail='User already exists'
+            detail='Email is already in use'
+        )
+    if username_exists:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail='Username already exists'
         )
 
     new_user = await user_service.create_user(user_data, session)

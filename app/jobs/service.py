@@ -20,13 +20,13 @@ class JobService:
             authorName = await self.get_author_name(job.author_uid, session)
             isLiked = await self.like_checker(job.author_uid, str(job.uid), session)
             job_response_dict = {
-                "uid": str(job.uid),
+                "_id": str(job.uid),
                 "title": job.title,
                 "description": job.description,
                 "type": job.type,
                 "likes": job.likes,
                 "category": job.category,
-                "is_active": job.is_active,
+                "isActive": job.is_active,
                 "authorName": authorName,  # Add the author's username
                 "isLiked": isLiked
             }
@@ -76,13 +76,13 @@ class JobService:
             raise HTTPException(status_code=404, detail="Job not found")
 
         job_dict = {
-            "uid": str(job_uid),
+            "_id": str(job_uid),
             "title": job.title,
             "description": job.description,
             "type": job.type,
             "likes": job.likes,
             "category": job.category,
-            "is_active": job.is_active,
+            "isActive": job.is_active,
             "isLiked": False  # default value
         }
 
@@ -116,16 +116,20 @@ class JobService:
             # Enrich the job with author name
             author_username = await self.get_author_name(job.author_uid, session)
             isLiked = await self.like_checker(author_uid, str(job.uid), session)
+            liked_job_user_ids = [str(like.user_id) for like in job.liked_by]
             job_dict = {
-                "uid": str(job.uid),
+                "_id": str(job.uid),
                 "title": job.title,
                 "description": job.description,
                 "type": job.type,
                 "likes": job.likes,
                 "category": job.category,
-                "is_active": job.is_active,
+                "author": str(job.author_uid),
+                "isActive": job.is_active,
                 "authorName": author_username,  # Add the author's username
-                "isLiked": isLiked
+                "isLiked": isLiked,
+                "applicants": job.applicants,
+                "likedBy": liked_job_user_ids  # to show only the users id
             }
             enriched_jobs.append(job_dict)
 
@@ -148,7 +152,7 @@ class JobService:
             applicant_uids = [application.user_uid for application in job.applicants]
 
             return {
-                "uid": job.uid,
+                "_id": job.uid,
                 "title": job.title,
                 "description": job.description,
                 "type": job.type,
@@ -169,7 +173,7 @@ class JobService:
         await session.refresh(new_job)
         return {"message": "Job offer has been created successfully."}
 
-    async def update_job(self, job_uid: str, user_uid: str, update_data: JobUpdateModel, session: AsyncSession):
+    async def update_job(self, job_uid: str, update_data: JobUpdateModel, session: AsyncSession):
         job_to_update = await self.get_job_data(job_uid, session)  # taking all job data
 
         if job_to_update is not None:
@@ -212,7 +216,11 @@ class JobService:
 
         await session.commit()
 
-        return {"message": "Job liked successfully"}
+        return {
+            "message": "Job liked",
+            "likes": job_instance.likes,
+            "isLiked": True
+        }
 
     async def unlike_job(self, job_uid: str, user_uid: str, session: AsyncSession):
         """Allow a user to unlike a job."""
@@ -229,7 +237,11 @@ class JobService:
 
         await session.commit()
 
-        return {"detail": "Job unliked successfully."}
+        return {
+            "message": "Job unliked",
+            "likes": job_instance.likes,
+            "isLiked": False
+        }
 
     async def get_liked_jobs(self, user_uid: str, session: AsyncSession):
         """Fetch all liked jobs from current user"""

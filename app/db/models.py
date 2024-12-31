@@ -25,6 +25,7 @@ class User(SQLModel, table=True):
     ))
     firstName: Optional[str] = Field(default=None)
     lastName: Optional[str] = Field(default=None)
+    is_active: bool = Field(default=True, nullable=False)
     # Relationships (lazy='selectin' argument optimizes query performance)
     applications: List['Applications'] = Relationship(back_populates='user', sa_relationship_kwargs={
         'lazy': 'selectin'})  # A user can submit multiple job applications. (one-to-many relationship)

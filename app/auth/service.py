@@ -1,6 +1,7 @@
 from sqlmodel.ext.asyncio.session import AsyncSession
-from app.db.models import User
-from sqlmodel import select
+from fastapi.exceptions import HTTPException
+from app.db.models import User, JobLikes, Applications, Jobs
+from sqlmodel import select, delete, update, values
 from app.auth.schemas import UserCreateModel
 from app.auth.security import generate_password_hash
 
@@ -17,7 +18,7 @@ class UserService:
         return user
 
     async def get_user_by_credential(self, credential: str,
-                                        session: AsyncSession):
+                                     session: AsyncSession):
         statement = select(User).where((User.username == credential) | (User.email == credential))
 
         result = await session.exec(statement)
@@ -63,3 +64,62 @@ class UserService:
         await session.commit()
 
         return user
+
+    async def getUserDetails(self, user_id: str, session: AsyncSession):
+        user = await self.get_user_by_uid(user_id, session)
+        user_response_dict = {
+            # not using schemas, because Pydantic automatically excludes fields prefixed with an underscore
+            '_id': user.uid,
+            'username': user.username,
+            'email': user.email,
+            'roles': [user.role],
+            'firstName': user.firstName,
+            'lastName': user.lastName,
+            'isActive': user.is_active
+        }
+        return user_response_dict
+
+    async def getUser(self, user_id: str, session: AsyncSession):
+        user = await self.get_user_by_uid(user_id, session)
+        user_response_dict = {
+            # not using schemas, because Pydantic automatically excludes fields prefixed with an underscore
+            '_id': user.uid,
+            'username': user.username,
+            'email': user.email,
+            'password': user.password_hash,
+            'roles': [user.role],
+            'firstName': user.firstName,
+            'lastName': user.lastName,
+            'applications': user.applications,
+            'isActive': user.is_active
+        }
+        return user_response_dict
+
+    async def deleteUser(self, user_id: str, session: AsyncSession):
+        user = await self.get_user_by_uid(user_id, session)  # fetch the user from the db
+        if not user:  # if user cannot be found
+            raise HTTPException(status_code=404, detail="User could not be found")
+
+        # Remove likes by the user from all jobs
+        statement = select(JobLikes).where(JobLikes.user_id == user_id)
+        result = await session.exec(statement)
+        job_likes = result.all()  # Fetch all JobLikes instances
+
+        # Iterate through each job_like and delete it
+        for job_like in job_likes:
+            await session.delete(job_like)
+
+        # Determine user role
+        role = user.role
+
+        if role == 'USER':  # remove all applications made by the user
+            statement = delete(Applications).where(Applications.user_uid == user_id)
+            await session.exec(statement)
+
+        if role == 'ORGANIZATION':  # Set all jobs created by the organization to inactive (without touching the likes)
+            statement = update(Jobs).where(Jobs.uid == user_id).values(is_active=False)
+            await session.execute(statement)
+
+        # Finally delete the user
+        await session.delete(user)
+        await session.commit()

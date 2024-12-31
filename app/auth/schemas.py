@@ -1,5 +1,6 @@
-from pydantic import BaseModel
-from typing import Optional
+from pydantic import BaseModel, Field
+from typing import Optional, List
+import uuid
 
 
 class UserCreateModel(BaseModel):  # registration Model
@@ -14,3 +15,6 @@ class UserCreateModel(BaseModel):  # registration Model
 class UserLoginModel(BaseModel):
     username: str
     password: str
+
+
+

@@ -1,7 +1,7 @@
 from fastapi.exceptions import HTTPException
 from fastapi.responses import JSONResponse
 from sqlmodel.ext.asyncio.session import AsyncSession
-from app.auth.schemas import UserCreateModel, UserLoginModel
+from app.auth.schemas import UserCreateModel, UserLoginModel, UserUpdateRequestModel
 from app.db.main import get_session
 from app.auth.service import UserService
 from app.auth.dependencies import RoleChecker, CustomTokenBearer
@@ -120,12 +120,32 @@ async def get_user(token_details: dict = Depends(access_token_bearer),
 async def delete_user(user_uid: str,
                       token_details: dict = Depends(access_token_bearer),
                       session: AsyncSession = Depends(get_session)
-                      ):
+                      ) -> dict:
     current_user_id = token_details['id']
-    print(current_user_id)
     if str(user_uid) != str(current_user_id):  # checks if current user is trying to delete another user
         raise HTTPException(status_code=403, detail="You are not authorized to perform this action")
 
     await user_service.deleteUser(user_uid, session)
 
     return {'message': f"User {token_details['userName']} has been deleted successfully"}
+
+
+@auth_router.put("/user/{user_uid}")
+async def update_user(user_uid: str,
+                      user_update: UserUpdateRequestModel,
+                      token_details: dict = Depends(access_token_bearer),
+                      session: AsyncSession = Depends(get_session)
+                      ) -> dict:
+    current_user_id = token_details['id']
+    if str(user_uid) != str(current_user_id):  # checks if current user is trying to delete another user
+        raise HTTPException(status_code=403, detail="You are not authorized to perform this action")
+
+    try:
+        user = await user_service.updateUser(user_uid, user_update, session)
+        return user
+    except Exception as e:
+        print(f"Error updating user: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Unable to update"
+        )

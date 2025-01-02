@@ -2,7 +2,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from fastapi.exceptions import HTTPException
 from app.db.models import User, JobLikes, Applications, Jobs
 from sqlmodel import select, delete, update, values
-from app.auth.schemas import UserCreateModel
+from app.auth.schemas import UserCreateModel, UserUpdateRequestModel
 from app.auth.security import generate_password_hash
 
 
@@ -123,3 +123,30 @@ class UserService:
         # Finally delete the user
         await session.delete(user)
         await session.commit()
+
+    async def updateUser(self, user_id: str, user_update: UserUpdateRequestModel, session: AsyncSession):
+        user = await self.get_user_by_uid(user_id, session)  # fetch the user from the db
+        if not user:  # if user cannot be found
+            raise HTTPException(status_code=404, detail="User could not be found")
+
+        # Update fields only if new values are provided
+        if user_update.username:
+            user.username= user_update.username
+
+        if user_update.email:
+            user.email = user_update.email
+
+        if user_update.firstName:
+            user.firstName = user_update.firstName
+
+        if user_update.lastName:
+            user.lastName = user_update.lastName
+
+        await session.commit()
+
+        return {"message": f"User {user.username} has been updated successfully",
+                "data": {
+                    "username": {user.username},
+                    "email": {user.email}
+                }
+                }

@@ -1,7 +1,7 @@
 from fastapi.exceptions import HTTPException
 from fastapi.responses import JSONResponse
 from sqlmodel.ext.asyncio.session import AsyncSession
-from app.auth.schemas import UserCreateModel, UserLoginModel, UserUpdateRequestModel
+from app.auth.schemas import UserCreateModel, UserLoginModel, UserUpdateRequestModel, UserPasswordChangeModel
 from app.db.main import get_session
 from app.auth.service import UserService
 from app.auth.dependencies import RoleChecker, CustomTokenBearer
@@ -140,12 +140,28 @@ async def update_user(user_uid: str,
     if str(user_uid) != str(current_user_id):  # checks if current user is trying to delete another user
         raise HTTPException(status_code=403, detail="You are not authorized to perform this action")
 
+    user = await user_service.updateUser(user_uid, user_update, session)
+    return user
+
+
+@auth_router.put("/updateUserDetails")
+async def update_user(user_update: UserUpdateRequestModel,
+                      token_details: dict = Depends(access_token_bearer),
+                      session: AsyncSession = Depends(get_session)
+                      ) -> dict:  # fetch the user directly from the token
+    user_uid = token_details['id']
+    user = await user_service.updateUser(user_uid, user_update, session)
+    return user
+
+
+@auth_router.patch("/changePassword")
+async def change_user_password(user_data: UserPasswordChangeModel,
+                               token_details: dict = Depends(access_token_bearer),
+                               session: AsyncSession = Depends(get_session)
+                               ) -> dict:
+    user_uid = token_details['id']
     try:
-        user = await user_service.updateUser(user_uid, user_update, session)
-        return user
-    except Exception as e:
-        print(f"Error updating user: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Unable to update"
-        )
+        response = await user_service.changeUserPassword(user_uid, user_data, session)
+        return response
+    except HTTPException as e:
+        raise e

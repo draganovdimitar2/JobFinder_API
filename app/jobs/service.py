@@ -107,7 +107,7 @@ class JobService:
 
     async def get_authors_jobs(self, author_uid: str, session: AsyncSession):
         """Fetch all jobs associated with a specific author_uid."""
-        statement = select(Jobs).where(Jobs.author_uid == author_uid, Jobs.is_active == True)
+        statement = select(Jobs).where(Jobs.author_uid == author_uid)
         result = await session.exec(statement)
         jobs = result.all()
 
@@ -278,12 +278,6 @@ class JobService:
 
     async def delete_job(self, job_uid: str, current_user_uid: str, session: AsyncSession):
         """Fetch and delete a job if the current user is the author."""
-        statement = select(JobLikes).where(JobLikes.user_id == current_user_uid)
-        result = await session.exec(statement)
-        job_likes = result.all()  # Get all related JobLikes
-
-        for job_like in job_likes:  # iterate through each like and delete it
-            await session.delete(job_like)
         # Query the job by its UID
         query = select(Jobs).where(Jobs.uid == job_uid)
         result = await session.execute(query)
@@ -296,8 +290,18 @@ class JobService:
         if job.author_uid != current_user_uid:
             raise HTTPException(status_code=403, detail="You do not have permission to delete this job")
 
+        job_likes_query = select(JobLikes).where(
+            JobLikes.job_id == job_uid
+        )
+        result = await session.exec(job_likes_query)
+        job_likes = result.all()  # Get all related JobLikes
+
+        for job_like in job_likes:  # iterate through each like and delete it
+            await session.delete(job_like)
+
         # Delete the job and commit the transaction
         await session.delete(job)
+
         await session.commit()
 
         return {"detail": "Job deleted successfully"}

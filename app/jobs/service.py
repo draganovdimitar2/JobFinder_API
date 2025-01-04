@@ -7,7 +7,7 @@ from app.db.models import Jobs, JobLikes, User
 
 
 class JobService:
-    async def get_all_jobs(self, session: AsyncSession):
+    async def get_all_jobs(self, user_uid: str, session: AsyncSession):
         """Fetch all active jobs."""
         statement = select(Jobs).where(Jobs.is_active == True)
 
@@ -18,7 +18,7 @@ class JobService:
         list_storing_all_jobs = []
         for job in all_jobs:  # for each job we get its authorName and check if current user has liked the job
             authorName = await self.get_author_name(job.author_uid, session)
-            isLiked = await self.like_checker(job.author_uid, str(job.uid), session)
+            isLiked = await self.like_checker(user_uid, str(job.uid), session)
             job_response_dict = {
                 "_id": str(job.uid),
                 "title": job.title,
@@ -229,7 +229,7 @@ class JobService:
             raise HTTPException(status_code=404, detail="Job not found!")
 
         # Proceed to delete the like
-        await session.execute(delete(JobLikes).where(JobLikes.job_id == job_uid, JobLikes.user_id == user_uid))
+        await session.exec(delete(JobLikes).where(JobLikes.job_id == job_uid, JobLikes.user_id == user_uid))
         # Decrement the likes count in the Jobs table
         job_instance = await session.get(Jobs, job_uid)
         if job_instance:

@@ -46,13 +46,14 @@ async def create_job(
 @job_router.get('/job')
 async def get_all_jobs(
         session: AsyncSession = Depends(get_session),
-        _: dict = Depends(access_token_bearer)
+        token_details: dict = Depends(access_token_bearer)
 ) -> list:
     """
     Endpoint to fetch all ACTIVE jobs.
     """
+    user_id = token_details['id']
     try:
-        return await job_service.get_all_jobs(session)
+        return await job_service.get_all_jobs(user_id, session)
     except Exception:
         raise HTTPException(status_code=500, detail="An error occurred while trying to fetch all jobs")
 

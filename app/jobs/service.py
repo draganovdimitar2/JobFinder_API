@@ -117,6 +117,7 @@ class JobService:
             author_username = await self.get_author_name(job.author_uid, session)
             isLiked = await self.like_checker(author_uid, str(job.uid), session)
             liked_job_user_ids = [str(like.user_id) for like in job.liked_by]
+            applicants_list = [{"_id": str(applicant.uid)} for applicant in job.applicants]
             job_dict = {
                 "_id": str(job.uid),
                 "title": job.title,
@@ -128,7 +129,7 @@ class JobService:
                 "isActive": job.is_active,
                 "authorName": author_username,  # Add the author's username
                 "isLiked": isLiked,
-                "applicants": job.applicants,
+                "applicants": applicants_list,
                 "likedBy": liked_job_user_ids  # to show only the users id
             }
             enriched_jobs.append(job_dict)

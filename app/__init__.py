@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .auth.routes import auth_router
 from .jobs.routes import job_router
+from .applications.routes import application_router
 import logging
 
 logging.basicConfig(level=logging.DEBUG)
@@ -19,4 +20,5 @@ app = FastAPI(
 #     allow_headers=["*"],
 # )
 app.include_router(auth_router, prefix='/auth', tags=['auth'])  # include routers in our main app
-app.include_router(job_router, prefix='/jobs', tags=['jobs'])  # include routers in our main app
+app.include_router(job_router, prefix='/jobs', tags=['jobs'])
+app.include_router(application_router, prefix='/application', tags=['applications'])

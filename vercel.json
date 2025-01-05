@@ -1,15 +1,15 @@
 {
-  "devCommand": "uvicorn main:app --host 0.0.0.0 --port 8000",
+  "devCommand": "fastapi run --workers 4 app/__init__.py --host 0.0.0.0 --port 8000",
   "builds": [
     {
-      "src": "api/index.py",
+      "src": "app/__init__.py",
       "use": "@vercel/python"
     }
   ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "api/index.py"
+      "dest": "app/__init__.py"
     }
   ]
 }

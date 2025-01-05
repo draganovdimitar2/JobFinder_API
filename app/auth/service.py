@@ -153,11 +153,19 @@ class UserService:
 
         await session.commit()
 
+        user_response_dict = {
+            # not using schemas, because Pydantic automatically excludes fields prefixed with an underscore
+            '_id': user.uid,
+            'username': user.username,
+            'email': user.email,
+            'roles': [user.role],
+            'firstName': user.firstName,
+            'lastName': user.lastName,
+            'isActive': user.is_active
+        }
+
         return {"message": f"User {user.username} has been updated successfully",
-                "data": {
-                    "username": {user.username},
-                    "email": {user.email}
-                }
+                "data": user_response_dict
                 }
 
     async def changeUserPassword(self, user_uid: str, user_data: UserPasswordChangeModel, session: AsyncSession):
@@ -167,7 +175,8 @@ class UserService:
 
         user_password_from_db = user.password_hash  # get the hashed password from db
 
-        password_verify = verify_password(user_data.oldPassword, user_password_from_db)  # return a bool based on whether old password from user is the same as this in the db
+        password_verify = verify_password(user_data.oldPassword,
+                                          user_password_from_db)  # return a bool based on whether old password from user is the same as this in the db
         if not password_verify:  # if old password is not the same
             raise HTTPException(status_code=400, detail="Invalid old password")
 

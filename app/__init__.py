@@ -12,13 +12,13 @@ app = FastAPI(
     description='A REST API for a job finder web service',
     version=version
 )
-# app.add_middleware(
-#     CORSMiddleware,
-#     allow_origins=["http://localhost:4200"],  # Angular dev server
-#     allow_credentials=True,
-#     allow_methods=["*"],
-#     allow_headers=["*"],
-# )
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*", "http://localhost:4200"],  # Angular dev server
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.include_router(auth_router, prefix='/auth', tags=['auth'])  # include routers in our main app
 app.include_router(job_router, prefix='/jobs', tags=['jobs'])
 app.include_router(application_router, prefix='/application', tags=['applications'])

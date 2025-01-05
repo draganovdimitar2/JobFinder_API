@@ -37,3 +37,16 @@ async def my_applications(token_details: dict = Depends(access_token_bearer),
     user_id = token_details['id']
     applications = await application_service.my_applications(user_id, session)
     return applications
+
+
+@application_router.get("/applicants/{job_uid}")
+async def get_job_applicants(job_uid: str,
+                             token_details: dict = Depends(access_token_bearer),
+                             session: AsyncSession = Depends(get_session)) -> list:
+    user_id = token_details['id']
+    user_role = token_details['roles'][0]
+    if user_role != "ORGANIZATION":
+        raise HTTPException(status_code=404, detail="Users are not authorized to view job applicants!")
+
+    application = await application_service.get_job_applicants(job_uid, user_id, session)
+    return application

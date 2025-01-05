@@ -4,9 +4,11 @@ from sqlmodel import select, delete
 from app.db.models import Jobs, JobLikes, User, Applications
 from app.applications.schemas import ApplicationRequestModel
 from app.jobs.service import JobService
+from app.auth.service import UserService
 from datetime import datetime
 
 job_service = JobService()
+user_service = UserService()
 
 
 class ApplicationService:
@@ -75,3 +77,37 @@ class ApplicationService:
             applications_list.append(application_dict)
 
         return applications_list
+
+    async def get_job_applicants(self, job_id: str, user_id: str, session: AsyncSession) -> list:
+        """Get applicants for a job in the desired format"""
+
+        # Fetch Applications and associated Users
+        statement = (
+            select(Applications, User)
+            .join(User, Applications.user_uid == User.uid)  # Join Users to fetch user details
+            .where(Applications.job_uid == job_id)  # Filter by job_id
+        )
+
+        result = await session.exec(statement)
+        records = result.all()
+
+        # Format Application Data
+        application_list = [
+            {
+                "_id": str(application.uid),  # Application ID
+                "user": {
+                    "_id": str(user.uid),  # User ID
+                    "username": user.username,  # Username
+                    "email": user.email,  # Email
+                    "firstName": user.firstName or "",  # First Name
+                    "lastName": user.lastName or "",  # Last Name
+                },
+                "job": str(application.job_uid),  # Job ID
+                "status": application.status,  # Application Status
+                "coverLetter": application.coverLetter,  # Cover Letter
+                "appliedAt": application.appliedAt.isoformat(),  # Application Date (ISO format)
+            }
+            for application, user in records
+        ]
+
+        return application_list

@@ -230,7 +230,7 @@ async def unlike_job(job_uid: str,
     return await job_service.unlike_job(job_uid, user_uid, session)
 
 
-@job_router.get('/favourites')
+@job_router.get('/favorites')
 async def get_all_liked_jobs(
         session: AsyncSession = Depends(get_session),
         token_details: dict = Depends(access_token_bearer)

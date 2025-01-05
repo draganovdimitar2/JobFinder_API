@@ -3,7 +3,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from .auth.routes import auth_router
 from .jobs.routes import job_router
 from .applications.routes import application_router
+import logging
 
+logging.basicConfig(level=logging.DEBUG)
 version = 'v1'
 app = FastAPI(
     title='JobFinder',

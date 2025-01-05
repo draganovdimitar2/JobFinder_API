@@ -3,7 +3,7 @@
 *.py[cod]
 *.pyo
 *.pyd
-.env
+
 
 # IDEs
 .idea/

@@ -1,5 +1,5 @@
 {
-  "devCommand": "fastapi run --workers 4 app/__init__.py --host 0.0.0.0 --port 8000",
+  "devCommand": "uvicorn app:app --host 0.0.0.0 --port 8000",
   "builds": [
     {
       "src": "app/__init__.py",

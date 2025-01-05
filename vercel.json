@@ -2,7 +2,7 @@
   "devCommand": "uvicorn app:app --host 0.0.0.0 --port 8000",
   "builds": [
     {
-      "src": "app/__init__.py"
+      "src": "app/__init__.py",
       "use": "@vercel/python"
     }
   ],

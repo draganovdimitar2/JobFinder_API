@@ -11,12 +11,9 @@ app = FastAPI(
     version=version
 )
 
-origins = [
-    "https://diman-job-ui.vercel.app",
-]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,  # Angular server
+    allow_origins=["*"],  # Angular server
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

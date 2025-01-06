@@ -6,10 +6,6 @@ from app.db.main import get_session
 from app.auth.service import UserService
 from app.auth.dependencies import RoleChecker, CustomTokenBearer
 from .security import verify_password, create_access_token
-import logging
-import json
-
-logger = logging.getLogger("auth")
 from fastapi import (
     APIRouter,
     Depends,

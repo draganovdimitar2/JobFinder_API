@@ -117,7 +117,7 @@ async def deactivate_job(job_uid: str,
         raise HTTPException(status_code=403, detail="You are not authorized to deactivate jobs.")
 
     job = await job_service.get_job_by_its_id(job_uid, user_uid, session)
-    if job['authorName'] != username:  # if job is posted from another user (org)
+    if job['author_uid'] != user_uid:  # if job is posted from another user (org)
         raise HTTPException(status_code=403, detail="You are not authorized to deactivate this job!")
 
     return await job_service.deactivate_job(job_uid, session)
@@ -158,8 +158,9 @@ async def update_job(job_uid: str,
     job_to_update = await job_service.get_job_by_its_id(job_uid, user_uid, session)
     if not job_to_update:
         raise HTTPException(status_code=404, detail="Job not found")
+
     # check if the author(org) is updating his own jobs, otherwise raise an exception
-    if job_to_update['authorName'] != username:
+    if job_to_update['author_uid'] != user_uid:
         raise HTTPException(status_code=403, detail="You are not authorized to update this job!")
 
     if role.lower() != 'organization':  # checks if user is trying to update org jobs

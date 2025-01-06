@@ -82,6 +82,7 @@ class JobService:
             "type": job.type,
             "likes": job.likes,
             "category": job.category,
+            "author_uid":str(job.author_uid),
             "isActive": job.is_active,
             "isLiked": False  # default value
         }

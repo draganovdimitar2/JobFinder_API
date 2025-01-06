@@ -2,7 +2,7 @@ from fastapi.exceptions import HTTPException
 from sqlmodel.ext.asyncio.session import AsyncSession
 from app.db.main import get_session
 from app.applications.service import ApplicationService
-from app.applications.schemas import ApplicationRequestModel
+from app.applications.schemas import ApplicationRequestModel, ApplicationUpdateModel
 from app.auth.dependencies import RoleChecker, CustomTokenBearer
 from fastapi import (
     APIRouter,
@@ -50,3 +50,18 @@ async def get_job_applicants(job_uid: str,
 
     application = await application_service.get_job_applicants(job_uid, user_id, session)
     return application
+
+
+@application_router.patch("/application/{application_uid}/status")
+async def update_application_status(application_uid: str,
+                                    update_data: ApplicationUpdateModel,
+                                    token_details: dict = Depends(access_token_bearer),
+                                    session: AsyncSession = Depends(get_session)) -> dict:
+    user_id = token_details['id']
+    user_role = token_details['roles'][0]
+    if user_role != "ORGANIZATION":
+        raise HTTPException(status_code=404, detail="Users are not authorized to change application status!")
+
+    application_status_update = await application_service.update_application_status(update_data, user_id,
+                                                                                    application_uid, session)
+    return application_status_update

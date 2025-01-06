@@ -2,7 +2,7 @@ from fastapi.exceptions import HTTPException
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select, delete
 from app.db.models import Jobs, JobLikes, User, Applications
-from app.applications.schemas import ApplicationRequestModel
+from app.applications.schemas import ApplicationRequestModel, ApplicationUpdateModel
 from app.jobs.service import JobService
 from app.auth.service import UserService
 from datetime import datetime
@@ -111,3 +111,37 @@ class ApplicationService:
         ]
 
         return application_list
+
+    async def update_application_status(self,
+                                        update_model: ApplicationUpdateModel,
+                                        user_id: str,
+                                        applications_id: str,
+                                        session: AsyncSession) -> dict:
+        allowed_application_status = ["PENDING", "ACCEPTED", "REJECTED"]
+        if update_model.status not in allowed_application_status:
+            raise HTTPException(status_code=400, detail="Invalid status")
+
+        statement = await session.exec(select(Applications).where(Applications.uid == applications_id))
+        application = statement.first()  # fetch the application by its id
+        if not application:
+            raise HTTPException(status_code=404, detail="Application doesnt exist!")
+
+        job_id = application.job_uid  # find the job id from the application
+        statement = await session.exec(select(Jobs).where(Jobs.uid == job_id))  # fetch the job from db
+        job = statement.first()
+
+        #  Check if application exists and if the user is authorized to update it
+        if str(job.author_uid) != user_id:
+            raise HTTPException(status_code=400, detail="You are not authorized to update this application")
+
+        application.status = update_model.status
+
+        await session.commit()
+
+        application_dict = {
+            "id": str(application.uid),
+            "status": application.status,
+            "job": str(job.uid)
+        }
+        return {"message": "Application status updated",
+                "application": application_dict}

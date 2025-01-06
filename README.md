@@ -1,7 +1,20 @@
 # JobFinder
 
-**Work in Progress**: This project is currently under development. Features and functionality may change as development continues.
+## Project Announcement: JobFinder 🚀
 
+We are excited to announce that the **JobFinder** application is now live! This platform seamlessly integrates the back-end API and front-end interface to deliver a complete solution for connecting organizations and job seekers.
+
+- **Explore the Application**: [JobFinder Application](https://diman-job-ui.vercel.app)
+- **API Documentation**: [JobFinder API Documentation](https://diman-job-finder-fast-api-tpmk.onrender.com/docs)
+
+#### Note
+The back-end API is hosted on Render's free plan. Because of this, the initial access can take anywhere from **30 to 50 seconds** to load. We appreciate your patience!
+
+#### Contributors
+- **Back-End Development**: Developed by [Dimitar Draganov](https://github.com/draganovdimitar2) (me), the back-end API is built using FastAPI for performance and scalability.
+- **Front-End Development**: Big thanks to [realun00](https://github.com/realun00), who designed and implemented the front-end with intuitive and responsive user interface.
+
+Thank you for supporting JobFinder, and stay tuned for future updates and enhancements!
 ## Project Overview
 
 The Job Finder API application will feature two types of users: **Organizations** and **Regular Users**. Each role will be able to perform the following operations:

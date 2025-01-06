@@ -7,7 +7,7 @@ import uuid
 import logging
 
 passwd_context = CryptContext(
-    schemes=['bcrypt']  # list of the algorithm used to hash the password
+    schemes=['argon2']  # list of the algorithm used to hash the password
 )
 
 ACCESS_TOKEN_EXPIRY = 3600

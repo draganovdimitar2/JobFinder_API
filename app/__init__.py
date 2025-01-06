@@ -10,13 +10,18 @@ app = FastAPI(
     description='A REST API for a job finder web service',
     version=version
 )
+
+origins = [
+    "https://diman-job-ui.vercel.app",
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Angular server
+    allow_origins=origins,  # Angular server
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 app.include_router(auth_router, prefix='/auth', tags=['auth'])  # include routers in our main app
 app.include_router(job_router, prefix='/jobs', tags=['jobs'])
 app.include_router(application_router, prefix='/application', tags=['applications'])

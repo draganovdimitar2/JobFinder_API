@@ -1,22 +1,12 @@
 from sqlmodel.ext.asyncio.session import AsyncSession
 from fastapi.exceptions import HTTPException
 from app.db.models import User, JobLikes, Applications, Jobs
-from sqlmodel import select, delete, update, values
+from sqlmodel import select, delete, update
 from app.auth.schemas import UserCreateModel, UserUpdateRequestModel, UserPasswordChangeModel
 from app.auth.security import generate_password_hash, verify_password
 
 
 class UserService:
-    async def get_user_by_email(self, email: str,
-                                session: AsyncSession):  # func used for login and to check if user exists
-        statement = select(User).where(User.email == email)
-
-        result = await session.exec(statement)
-
-        user = result.first()  # get the first user with this e-mail
-
-        return user
-
     async def get_user_by_credential(self, credential: str,
                                      session: AsyncSession):
         statement = select(User).where((User.username == credential) | (User.email == credential))
@@ -56,14 +46,6 @@ class UserService:
         await session.commit()
 
         return new_user  # This should include first_name and last_name
-
-    async def update_user(self, user: User, user_data: dict, session: AsyncSession):
-        for k, v in user_data.items():
-            setattr(user, k, v)
-
-        await session.commit()
-
-        return user
 
     async def getUserDetails(self, user_id: str, session: AsyncSession):
         user = await self.get_user_by_uid(user_id, session)

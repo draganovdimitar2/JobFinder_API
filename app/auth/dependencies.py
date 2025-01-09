@@ -79,8 +79,8 @@ class RoleChecker:
 
     def __call__(self, current_user: User = Depends(
         get_current_user)):
-        if current_user.role.upper() in [role.upper() for role in self.allowed_roles]:
-            return True  # indicating the user has permission
+        if current_user.role in self.allowed_roles:
+            return current_user  # if user is returned, he has permission
 
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

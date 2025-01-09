@@ -1,7 +1,7 @@
 from fastapi.exceptions import HTTPException
 from sqlmodel.ext.asyncio.session import AsyncSession
-from sqlmodel import select, delete
-from app.db.models import Jobs, JobLikes, User, Applications
+from sqlmodel import select
+from app.db.models import Jobs, User, Applications
 from app.applications.schemas import ApplicationRequestModel, ApplicationUpdateModel
 from app.jobs.service import JobService
 from app.auth.service import UserService

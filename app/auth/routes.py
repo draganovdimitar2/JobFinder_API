@@ -15,15 +15,18 @@ from fastapi import (
 access_token_bearer = CustomTokenBearer()
 auth_router = APIRouter()
 user_service = UserService()
-role_checker = RoleChecker(['ORGANIZATION', 'USER'])  # allowed roles
+user_role_checker = RoleChecker(['USER'])  # allowed roles
+organization_role_checker = RoleChecker(['ORGANIZATION'])
 
 
 @auth_router.post('/registration')
 async def registration(user_data: UserCreateModel,
                        session: AsyncSession = Depends(get_session)):  # Ensure the user is authenticated
-
+    """
+    Endpoint for user registration.
+    """
     # Check if the role is valid before proceeding with user registration
-    allowed_roles = ['ORGANIZATION', 'USER']  # Define allowed roles here
+    allowed_roles = ['ORGANIZATION', 'USER']
     if user_data.role not in allowed_roles:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -56,6 +59,9 @@ async def registration(user_data: UserCreateModel,
 
 @auth_router.post('/login')
 async def login(login_data: UserLoginModel, session: AsyncSession = Depends(get_session)):
+    """
+    Endpoint for user login.
+    """
     credential = login_data.username
     password = login_data.password
 
@@ -87,6 +93,9 @@ async def login(login_data: UserLoginModel, session: AsyncSession = Depends(get_
 async def get_user_details(token_details: dict = Depends(access_token_bearer),
                            session: AsyncSession = Depends(get_session)
                            ) -> dict:
+    """
+    Endpoint to fetch user's details.
+    """
     user_id = token_details['id']
 
     user = await user_service.getUserDetails(user_id, session)
@@ -101,6 +110,9 @@ async def get_user_details(token_details: dict = Depends(access_token_bearer),
 @auth_router.get("/user/{user_uid}")
 async def get_user(token_details: dict = Depends(access_token_bearer),
                    session: AsyncSession = Depends(get_session)) -> dict:
+    """
+    Endpoint to fetch user (and his data) by it's uid
+    """
     user_id = token_details['id']
 
     user = await user_service.getUser(user_id, session)
@@ -117,6 +129,9 @@ async def delete_user(user_uid: str,
                       token_details: dict = Depends(access_token_bearer),
                       session: AsyncSession = Depends(get_session)
                       ) -> dict:
+    """
+    Endpoint to delete user account.
+    """
     current_user_id = token_details['id']
     if str(user_uid) != str(current_user_id):  # checks if current user is trying to delete another user
         raise HTTPException(status_code=403, detail="You are not authorized to perform this action")
@@ -132,6 +147,9 @@ async def update_user(user_uid: str,
                       token_details: dict = Depends(access_token_bearer),
                       session: AsyncSession = Depends(get_session)
                       ) -> dict:
+    """
+    Endpoint to update user info by it's uid.
+    """
     current_user_id = token_details['id']
     if str(user_uid) != str(current_user_id):  # checks if current user is trying to delete another user
         raise HTTPException(status_code=403, detail="You are not authorized to perform this action")
@@ -145,6 +163,9 @@ async def update_user(user_update: UserUpdateRequestModel,
                       token_details: dict = Depends(access_token_bearer),
                       session: AsyncSession = Depends(get_session)
                       ) -> dict:  # fetch the user directly from the token
+    """
+    Endpoint to update user info.
+    """
     user_uid = token_details['id']
     user = await user_service.updateUser(user_uid, user_update, session)
     return user
@@ -155,6 +176,9 @@ async def change_user_password(user_data: UserPasswordChangeModel,
                                token_details: dict = Depends(access_token_bearer),
                                session: AsyncSession = Depends(get_session)
                                ) -> dict:
+    """
+    Endpoint to change user's password.
+    """
     user_uid = token_details['id']
     try:
         response = await user_service.changeUserPassword(user_uid, user_data, session)

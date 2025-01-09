@@ -1,9 +1,7 @@
 from datetime import timedelta, datetime
 from passlib.context import CryptContext
 from app.config import Config
-from typing import List
 import jwt
-import uuid
 import logging
 
 passwd_context = CryptContext(

@@ -1,6 +1,5 @@
 from fastapi.exceptions import HTTPException
 from sqlmodel.ext.asyncio.session import AsyncSession
-from sqlalchemy.orm import selectinload
 from .schemas import JobCreateModel, JobUpdateModel
 from sqlmodel import select, delete
 from app.db.models import Jobs, JobLikes, User
@@ -33,17 +32,6 @@ class JobService:
             list_storing_all_jobs.append(job_response_dict)
 
         return list_storing_all_jobs
-
-    async def get_organization_jobs(self, organization_uid: str, session: AsyncSession):
-        """Fetch all active jobs for a specific organization."""
-        statement = (
-            select(Jobs)
-            .where(Jobs.author_uid == organization_uid, Jobs.is_active == True)
-        )
-
-        result = await session.exec(statement)
-
-        return result.all()
 
     async def get_job_data(self, job_uid: str, session: AsyncSession):
         """Fetch a specific ACTIVE job by its UID. RESPONSE INCLUDE ALL DATA ABOUT THE ACTIVE JOB"""
@@ -82,7 +70,7 @@ class JobService:
             "type": job.type,
             "likes": job.likes,
             "category": job.category,
-            "author_uid":str(job.author_uid),
+            "author_uid": str(job.author_uid),
             "isActive": job.is_active,
             "isLiked": False  # default value
         }
@@ -136,36 +124,6 @@ class JobService:
             enriched_jobs.append(job_dict)
 
         return enriched_jobs
-
-    async def get_job_appliciants(self, job_uid: str, session: AsyncSession):
-        """Fetch the applicants for a specific job."""
-        statement = (
-            select(Jobs)
-            .where(Jobs.uid == job_uid)
-            .options(selectinload(Jobs.applicants))  # Eager load the applicants
-        )
-
-        result = await session.exec(statement)
-
-        job = result.scalar_one_or_none()  # Retrieve the job or None if it doesn't exist
-
-        if job:
-            # Extract the UIDs of the applicants
-            applicant_uids = [application.user_uid for application in job.applicants]
-
-            return {
-                "_id": job.uid,
-                "title": job.title,
-                "description": job.description,
-                "type": job.type,
-                "likes": job.likes,
-                "category": job.category,
-                "author_uid": job.author_uid,
-                "isActive": job.is_active,
-                "applicants": applicant_uids,  # Return only UIDs of applicants
-            }
-
-        return None  # Return None if no job found
 
     async def create_job(self, job_data: JobCreateModel, author_uid: str, session: AsyncSession) -> dict:
         """Create a new job and return the created job instance."""

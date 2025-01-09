@@ -1,7 +1,11 @@
 from sqlmodel.ext.asyncio.session import AsyncSession
 from .schemas import JobCreateModel, JobUpdateModel
 from sqlmodel import select, delete
-from app.db.models import Jobs, JobLikes, User
+from app.db.models import (
+    Jobs,
+    JobLikes,
+    User
+)
 from app.errors import (
     JobNotFound,
     AuthorNotFound,

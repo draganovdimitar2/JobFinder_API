@@ -14,6 +14,15 @@ class InvalidToken(JobFinderException):
     pass
 
 
+class TokenNotFound(JobFinderException):
+    """Token is not found!"""
+    pass
+
+
+class TokenUserRoleMissing(JobFinderException):
+    """User role from the token is not found!"""
+    pass
+
 
 class InvalidRole(JobFinderException):
     """Role is not allowed. Allowed roles are USER, ORGANIZATION"""
@@ -52,6 +61,11 @@ class LikeNotGiven(JobFinderException):
 
 class InvalidCredentials(JobFinderException):
     """User has provided wrong email/username or password during log in."""
+    pass
+
+
+class InvalidPassword(JobFinderException):
+    """User has provided an invalid password"""
     pass
 
 
@@ -107,6 +121,36 @@ def register_all_errors(app: FastAPI):
             initial_detail={
                 "message": "User with this email already exists",
                 "error_code": "user_exists",
+            },
+        ),
+    )
+    app.add_exception_handler(
+        TokenNotFound,
+        create_exception_handler(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            initial_detail={
+                "message": "Token is missing!",
+                "error_code": "token_missing",
+            },
+        ),
+    )
+    app.add_exception_handler(
+        InvalidPassword,
+        create_exception_handler(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            initial_detail={
+                "message": "Invalid Password!",
+                "error_code": "invalid_password",
+            },
+        ),
+    )
+    app.add_exception_handler(
+        TokenUserRoleMissing,
+        create_exception_handler(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            initial_detail={
+                "message": "User role from the token is missing!",
+                "error_code": "token_role_missing",
             },
         ),
     )

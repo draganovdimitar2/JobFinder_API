@@ -1,15 +1,16 @@
 from fastapi.exceptions import HTTPException
 from fastapi.responses import JSONResponse
 from sqlmodel.ext.asyncio.session import AsyncSession
-from app.auth.schemas import UserCreateModel, UserLoginModel, UserUpdateRequestModel, UserPasswordChangeModel
 from app.db.main import get_session
 from app.auth.service import UserService
 from app.auth.dependencies import RoleChecker, CustomTokenBearer
 from .security import verify_password, create_access_token
-from fastapi import (
-    APIRouter,
-    Depends,
-    status,
+from fastapi import APIRouter, Depends
+from app.auth.schemas import (
+    UserCreateModel,
+    UserLoginModel,
+    UserUpdateRequestModel,
+    UserPasswordChangeModel
 )
 from app.errors import (
     InvalidRole,
@@ -17,6 +18,7 @@ from app.errors import (
     UserEmailAlreadyExists,
     InvalidCredentials,
     UserNotFound,
+    InvalidPassword,
     InsufficientPermission
 )
 
@@ -71,7 +73,7 @@ async def login(login_data: UserLoginModel, session: AsyncSession = Depends(get_
 
     password_valid = verify_password(password, user.password_hash)
     if not password_valid:
-        raise InvalidCredentials()
+        raise InvalidPassword()
 
     access_token = create_access_token({
         'uid': str(user.uid),

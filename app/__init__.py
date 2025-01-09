@@ -24,7 +24,7 @@ app = FastAPI(
     }
 )
 
-register_all_errors(app)
+register_all_errors(app)  # register all custom errors
 
 app.add_middleware(
     CORSMiddleware,

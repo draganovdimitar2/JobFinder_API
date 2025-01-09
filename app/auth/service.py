@@ -1,13 +1,27 @@
 from sqlmodel.ext.asyncio.session import AsyncSession
-from app.db.models import User, JobLikes, Applications, Jobs
-from sqlmodel import select, delete, update
-from app.auth.schemas import UserCreateModel, UserUpdateRequestModel, UserPasswordChangeModel
 from app.auth.security import generate_password_hash, verify_password
+from sqlmodel import (
+    select,
+    delete,
+    update
+)
+from app.db.models import (
+    User,
+    JobLikes,
+    Applications,
+    Jobs
+)
+from app.auth.schemas import (
+    UserCreateModel,
+    UserUpdateRequestModel,
+    UserPasswordChangeModel
+)
 from app.errors import (
     UserNotFound,
     UserUsernameAlreadyExists,
     UserEmailAlreadyExists,
-    InvalidCredentials
+    InvalidCredentials,
+    InvalidPassword
 )
 
 
@@ -165,7 +179,7 @@ class UserService:
         password_verify = verify_password(user_data.oldPassword,
                                           user_password_from_db)  # return a bool based on whether old password from user is the same as this in the db
         if not password_verify:  # if old password is not the same
-            raise InvalidCredentials()
+            raise InvalidPassword()
 
         hashed_new_user_password = generate_password_hash(user_data.newPassword)  # generate hash for the new password
         user.password_hash = hashed_new_user_password

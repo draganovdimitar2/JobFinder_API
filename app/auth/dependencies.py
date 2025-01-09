@@ -1,4 +1,4 @@
-from fastapi import Request, Depends, HTTPException, status
+from fastapi import Request, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlmodel.ext.asyncio.session import AsyncSession
 from typing import List
@@ -6,6 +6,13 @@ from app.db.models import User
 from app.db.main import get_session
 from .service import UserService
 from .security import decode_token
+from app.errors import (
+    UserNotFound,
+    InsufficientPermission,
+    TokenNotFound,
+    TokenUserRoleMissing,
+    InvalidToken
+)
 
 user_service = UserService()
 
@@ -25,10 +32,7 @@ class TokenBearer(HTTPBearer):  # Base Class for Token Validation
         token_data = decode_token(token)
 
         if not self.token_valid(token):
-            raise HTTPException(
-                status_code=403,
-                detail="Authorization token is invalid."
-            )
+            raise InvalidToken()
 
         self.verify_token_data(token_data)
 
@@ -50,11 +54,11 @@ class CustomTokenBearer(TokenBearer):
     def verify_token_data(self, token_data: dict) -> None:
 
         if not token_data:  # if token is not found
-            raise HTTPException(status_code=401, detail="Token missing!")
+            raise TokenNotFound()
         if not token_data['roles']:  # if user role can't be found in token
-            raise HTTPException(status_code=401, detail="Invalid token: Missing user or role data.")
+            raise TokenUserRoleMissing()
         if token_data['exp'] - token_data['iat'] <= 0:  # if token time has passed
-            raise HTTPException(status_code=401, detail="Token has expired, please login again.")
+            raise InvalidToken()
 
 
 async def get_current_user(
@@ -62,12 +66,12 @@ async def get_current_user(
         session: AsyncSession = Depends(get_session)
 ):
     if not token_details:
-        raise HTTPException(status_code=403, detail="Invalid token: User data missing.")
+        raise InvalidToken()
 
     user_uid = token_details['id']
     user = await user_service.get_user_by_uid(user_uid, session)
     if not user:
-        raise HTTPException(status_code=404, detail="User not found.")
+        raise UserNotFound()
 
     return user
 
@@ -82,7 +86,4 @@ class RoleChecker:
         if current_user.role in self.allowed_roles:
             return current_user  # if user is returned, he has permission
 
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not have sufficient permissions to perform this action."
-        )
+        raise InsufficientPermission()

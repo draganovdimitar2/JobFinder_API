@@ -1,4 +1,3 @@
-from fastapi.exceptions import HTTPException
 from sqlmodel.ext.asyncio.session import AsyncSession
 from app.db.main import get_session
 from app.jobs.service import JobService

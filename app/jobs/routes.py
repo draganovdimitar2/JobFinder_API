@@ -8,6 +8,14 @@ from app.auth.dependencies import (
     get_current_user,
     CustomTokenBearer
 )
+from app.errors import (
+    JobNotFound,
+    InsufficientPermission,
+    LikeOwnJob,
+    DislikeOwnJob,
+    AlreadyLiked,
+    LikeNotGiven
+)
 from app.jobs.schemas import (
     JobCreateModel,
     JobUpdateModel
@@ -45,10 +53,7 @@ async def get_all_jobs(
     Endpoint to fetch all ACTIVE jobs.
     """
     user_id = token_details['id']
-    try:
-        return await job_service.get_all_jobs(user_id, session)
-    except Exception:
-        raise HTTPException(status_code=500, detail="An error occurred while trying to fetch all jobs")
+    return await job_service.get_all_jobs(user_id, session)
 
 
 @job_router.get('/job/organization')
@@ -99,7 +104,7 @@ async def deactivate_job(job_uid: str,
     """
     job = await job_service.get_job_by_its_id(job_uid, str(current_user.uid), session)
     if job['author_uid'] != str(current_user.uid):  # if job is posted from another user (org)
-        raise HTTPException(status_code=403, detail="You are not authorized to deactivate this job!")
+        raise InsufficientPermission()
 
     return await job_service.deactivate_job(job_uid, session)
 
@@ -114,7 +119,7 @@ async def activate_job(job_uid: str,
     job = await job_service.get_inactive_job_data(job_uid, session)
     if str(job.author_uid) != str(
             current_user.uid):  # if job is posted from another user (org). Conv author_uid to str because it is from type UUID.
-        raise HTTPException(status_code=403, detail="You are not authorized to deactivate this job!")
+        raise InsufficientPermission()
 
     return await job_service.activate_job(job_uid, session)
 
@@ -130,11 +135,11 @@ async def update_job(job_uid: str,
     """
     job_to_update = await job_service.get_job_by_its_id(job_uid, str(current_user.uid), session)
     if not job_to_update:
-        raise HTTPException(status_code=404, detail="Job not found")
+        raise JobNotFound()
 
     # check if the author(org) is updating his own jobs, otherwise raise an exception
     if job_to_update['author_uid'] != str(current_user.uid):
-        raise HTTPException(status_code=403, detail="You are not authorized to update this job!")
+        raise InsufficientPermission()
 
     await job_service.update_job(job_uid, job_update_data, session)
     job = await job_service.get_job_data(job_uid, session)
@@ -169,15 +174,15 @@ async def like_job(job_uid: str,
 
     job_data = await job_service.get_job_data(job_uid, session)
     if not job_data:
-        raise HTTPException(status_code=404, detail="Job not found!")
+        raise JobNotFound()
 
     job_author_uid = job_data.author_uid
 
     if str(job_author_uid) == user_uid:  # check if the user is owner of the job
-        raise HTTPException(status_code=400, detail="You can't like your own job!")
+        raise LikeOwnJob()
 
     if await job_service.like_checker(user_uid, job_uid, session):  # check whether like is already given
-        raise HTTPException(status_code=400, detail="You have already liked this job")
+        raise AlreadyLiked()
 
     return await job_service.like_job(job_uid, user_uid, session)
 
@@ -193,14 +198,14 @@ async def unlike_job(job_uid: str,
 
     job_data = await job_service.get_job_data(job_uid, session)
     if not job_data:
-        raise HTTPException(status_code=404, detail="Job not found!")
+        raise JobNotFound()
     job_author_uid = job_data.author_uid
 
     if str(job_author_uid) == user_uid:  # check if the user is owner of the job
-        raise HTTPException(status_code=400, detail="You can't unlike your own job!")
+        raise DislikeOwnJob()
 
     if not await job_service.like_checker(user_uid, job_uid, session):  # check whether like is already given
-        raise HTTPException(status_code=400, detail="Trying to dislike a job that you haven't like yet!")
+        raise LikeNotGiven()
 
     return await job_service.unlike_job(job_uid, user_uid, session)
 
@@ -214,7 +219,4 @@ async def get_all_liked_jobs(
     Endpoint to fetch all liked jobs by current user.
     """
     user_uid = token_details['id']
-    try:
-        return await job_service.get_liked_jobs(user_uid, session)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return await job_service.get_liked_jobs(user_uid, session)

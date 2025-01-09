@@ -1,8 +1,12 @@
-from fastapi.exceptions import HTTPException
 from sqlmodel.ext.asyncio.session import AsyncSession
 from .schemas import JobCreateModel, JobUpdateModel
 from sqlmodel import select, delete
 from app.db.models import Jobs, JobLikes, User
+from app.errors import (
+    JobNotFound,
+    AuthorNotFound,
+    InsufficientPermission
+)
 
 
 class JobService:
@@ -61,7 +65,7 @@ class JobService:
         job = result.first()
 
         if job is None:
-            raise HTTPException(status_code=404, detail="Job not found")
+            raise JobNotFound()
 
         job_dict = {
             "_id": str(job_uid),
@@ -90,7 +94,7 @@ class JobService:
         author = result.scalars().first()  # Get the first matching author
 
         if author is None:
-            raise HTTPException(status_code=404, detail="Author not found")
+            raise AuthorNotFound()
 
         return author  # Return the author's username
 
@@ -161,7 +165,7 @@ class JobService:
         """Allow a user to like a job."""
         job = await self.get_job_by_its_id(job_uid, user_uid, session)
         if not job:  # if job is not found
-            raise HTTPException(status_code=404, detail="Job is not found!")
+            raise JobNotFound()
 
         # Add the like
         new_like = JobLikes(user_id=user_uid, job_id=job_uid)
@@ -186,7 +190,7 @@ class JobService:
         """Allow a user to unlike a job."""
         job = await self.get_job_by_its_id(job_uid, user_uid, session)
         if not job:
-            raise HTTPException(status_code=404, detail="Job not found!")
+            raise JobNotFound()
 
         # Proceed to delete the like
         await session.exec(delete(JobLikes).where(JobLikes.job_id == job_uid, JobLikes.user_id == user_uid))
@@ -244,11 +248,11 @@ class JobService:
         job = result.scalar_one_or_none()
 
         if not job:
-            raise HTTPException(status_code=404, detail="Job not found")
+            raise JobNotFound()
 
         # Check if the current user is the author of the job
         if job.author_uid != current_user_uid:
-            raise HTTPException(status_code=403, detail="You do not have permission to delete this job")
+            raise InsufficientPermission()
 
         job_likes_query = select(JobLikes).where(
             JobLikes.job_id == job_uid

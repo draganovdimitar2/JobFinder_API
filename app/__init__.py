@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .auth.routes import auth_router
 from .jobs.routes import job_router
 from .applications.routes import application_router
+from .errors import register_all_errors
 
 version = 'v1'
 app = FastAPI(
@@ -22,6 +23,8 @@ app = FastAPI(
         'email': 'dragnovdimitar2@gmail.com'
     }
 )
+
+register_all_errors(app)
 
 app.add_middleware(
     CORSMiddleware,

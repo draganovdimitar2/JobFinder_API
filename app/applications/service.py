@@ -1,11 +1,21 @@
-from fastapi.exceptions import HTTPException
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
-from app.db.models import Jobs, User, Applications
 from app.applications.schemas import ApplicationRequestModel, ApplicationUpdateModel
 from app.jobs.service import JobService
 from app.auth.service import UserService
 from datetime import datetime
+from app.db.models import (
+    Jobs,
+    User,
+    Applications
+)
+from app.errors import (
+    JobNotFound,
+    AlreadyApplied,
+    ApplicationNotFound,
+    InvalidApplicationStatus,
+    InsufficientPermission
+)
 
 job_service = JobService()
 user_service = UserService()
@@ -22,7 +32,7 @@ class ApplicationService:
         """Apply for a job"""
         job = await job_service.get_job_by_its_id(job_id, user_id, session)
         if not job:
-            raise HTTPException(status_code=400, detail="Job is not active or does not exist")
+            raise JobNotFound()
 
         # check if application is already send for this job
         application_checker = await session.exec(
@@ -30,7 +40,7 @@ class ApplicationService:
         application_existence = application_checker.first()
 
         if application_existence:  # if like is already given, raise an exception
-            raise HTTPException(status_code=400, detail="You have already applied for this job")
+            raise AlreadyApplied()
 
         application = Applications(
             user_uid=user_id,
@@ -119,12 +129,12 @@ class ApplicationService:
                                         session: AsyncSession) -> dict:
         allowed_application_status = ["PENDING", "ACCEPTED", "REJECTED"]
         if update_model.status not in allowed_application_status:
-            raise HTTPException(status_code=400, detail="Invalid status")
+            raise InvalidApplicationStatus()
 
         statement = await session.exec(select(Applications).where(Applications.uid == applications_id))
         application = statement.first()  # fetch the application by its id
         if not application:
-            raise HTTPException(status_code=404, detail="Application doesnt exist!")
+            raise ApplicationNotFound()
 
         job_id = application.job_uid  # find the job id from the application
         statement = await session.exec(select(Jobs).where(Jobs.uid == job_id))  # fetch the job from db
@@ -132,7 +142,7 @@ class ApplicationService:
 
         #  Check if application exists and if the user is authorized to update it
         if str(job.author_uid) != user_id:
-            raise HTTPException(status_code=400, detail="You are not authorized to update this application")
+            raise InsufficientPermission()
 
         application.status = update_model.status
 

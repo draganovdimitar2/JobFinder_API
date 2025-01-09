@@ -1,9 +1,14 @@
 from sqlmodel.ext.asyncio.session import AsyncSession
-from fastapi.exceptions import HTTPException
 from app.db.models import User, JobLikes, Applications, Jobs
 from sqlmodel import select, delete, update
 from app.auth.schemas import UserCreateModel, UserUpdateRequestModel, UserPasswordChangeModel
 from app.auth.security import generate_password_hash, verify_password
+from app.errors import (
+    UserNotFound,
+    UserUsernameAlreadyExists,
+    UserEmailAlreadyExists,
+    InvalidCredentials
+)
 
 
 class UserService:
@@ -80,7 +85,7 @@ class UserService:
     async def deleteUser(self, user_id: str, session: AsyncSession):
         user = await self.get_user_by_uid(user_id, session)  # fetch the user from the db
         if not user:  # if user cannot be found
-            raise HTTPException(status_code=404, detail="User could not be found")
+            raise UserNotFound()
 
         # Remove likes by the user from all jobs
         statement = select(JobLikes).where(JobLikes.user_id == user_id)
@@ -109,16 +114,16 @@ class UserService:
     async def updateUser(self, user_id: str, user_update: UserUpdateRequestModel, session: AsyncSession):
         user = await self.get_user_by_uid(user_id, session)  # fetch the user from the db
         if not user:  # if user cannot be found
-            raise HTTPException(status_code=404, detail="User could not be found")
+            raise UserNotFound()
 
         # Validate unique constraints
         username_existence = await self.get_user_by_credential(user_update.username, session)
         if username_existence and username_existence.username != user.username:
-            raise HTTPException(status_code=400, detail="Username already in use")
+            raise UserUsernameAlreadyExists()
 
         email_existence = await self.get_user_by_credential(user_update.email, session)
         if email_existence and email_existence.email != user.email:
-            raise HTTPException(status_code=400, detail="Email already in use")
+            raise UserEmailAlreadyExists()
 
         # Update fields only if new values are provided
         if user_update.username:
@@ -153,14 +158,14 @@ class UserService:
     async def changeUserPassword(self, user_uid: str, user_data: UserPasswordChangeModel, session: AsyncSession):
         user = await self.get_user_by_uid(user_uid, session)  # fetch the user from the db
         if not user:  # if user cannot be found
-            raise HTTPException(status_code=404, detail="User could not be found")
+            raise UserNotFound()
 
         user_password_from_db = user.password_hash  # get the hashed password from db
 
         password_verify = verify_password(user_data.oldPassword,
                                           user_password_from_db)  # return a bool based on whether old password from user is the same as this in the db
         if not password_verify:  # if old password is not the same
-            raise HTTPException(status_code=400, detail="Invalid old password")
+            raise InvalidCredentials()
 
         hashed_new_user_password = generate_password_hash(user_data.newPassword)  # generate hash for the new password
         user.password_hash = hashed_new_user_password

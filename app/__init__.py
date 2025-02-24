@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .auth.routes import auth_router
 from .jobs.routes import job_router
 from .applications.routes import application_router
+from .notifications.routes import notification_router
 from .errors import register_all_errors
 
 version = 'v1'
@@ -37,3 +38,4 @@ app.add_middleware(
 app.include_router(auth_router, prefix='/auth', tags=['auth'])
 app.include_router(job_router, prefix='/jobs', tags=['jobs'])
 app.include_router(application_router, prefix='/application', tags=['applications'])
+app.include_router(notification_router, prefix='/notification', tags=['notifications'])

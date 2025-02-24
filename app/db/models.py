@@ -34,8 +34,13 @@ class User(SQLModel, table=True):
     liked_jobs: List['JobLikes'] = Relationship(back_populates='user', sa_relationship_kwargs={
         'lazy': 'selectin'})  # A user can "like" multiple jobs and a job can be "liked" by multiple user  (many-to-many relationship)
 
-    def __repr__(self):
-        return f"<User(username={self.username}, email={self.email})>"
+    notifications_received: List["Notification"] = Relationship(
+        back_populates="recipient",
+        sa_relationship_kwargs={"foreign_keys": "Notification.recipient_uid", "lazy": "selectin"}
+    )
+    notifications_sent: List["Notification"] = Relationship(
+        back_populates="sender", sa_relationship_kwargs={"foreign_keys": "Notification.sender_uid", "lazy": "selectin"}
+    )
 
 
 class Jobs(SQLModel, table=True):
@@ -65,6 +70,7 @@ class Jobs(SQLModel, table=True):
     liked_by: List['JobLikes'] = Relationship(
         back_populates='job', sa_relationship_kwargs={
             'lazy': 'selectin'})  # A job can be liked by multiple users and multiple users can like one job.  (Many-to-many relationship)
+
 
 class JobLikes(SQLModel, table=True):  # association table, which maps user IDs to job IDs.
     __tablename__ = "job_likes"
@@ -109,3 +115,36 @@ class Applications(SQLModel, table=True):
     job: 'Jobs' = Relationship(
         back_populates='applicants', sa_relationship_kwargs={
             'lazy': 'selectin'})  # Many-to-one relationship with Jobs. An application is for one job.
+
+
+class Notification(SQLModel, table=True):
+    __tablename__ = 'notifications'
+    uid: uuid.UUID = Field(
+        default_factory=uuid.uuid4,
+        sa_column=Column(
+            pg.UUID,
+            primary_key=True,
+            unique=True,
+            nullable=False
+        )
+    )
+    # The recipient of the notification (could be a company or an applicant)
+    recipient_uid: uuid.UUID = Field(foreign_key="users.uid", nullable=False)
+    # The sender of the notification (the one triggering the event, e.g., company or system)
+    sender_uid: uuid.UUID = Field(foreign_key="users.uid", nullable=False)
+    message: str = Field(nullable=False)
+    is_read: bool = Field(default=False, nullable=False)
+    created_at: datetime = Field(
+        default_factory=datetime.utcnow,
+        sa_column=Column(pg.TIMESTAMP, nullable=False)
+    )
+
+    # Relationships
+    recipient: 'User' = Relationship(
+        back_populates="notifications_received",
+        sa_relationship_kwargs={"foreign_keys": "Notification.recipient_uid", "lazy": "selectin"}
+    )
+    sender: 'User' = Relationship(
+        back_populates="notifications_sent",
+        sa_relationship_kwargs={"foreign_keys": "Notification.sender_uid", "lazy": "selectin"}
+    )

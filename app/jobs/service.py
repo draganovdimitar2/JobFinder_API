@@ -4,13 +4,17 @@ from sqlmodel import select, delete
 from app.db.models import (
     Jobs,
     JobLikes,
-    User
+    User,
+    Notification
 )
 from app.errors import (
     JobNotFound,
     AuthorNotFound,
     InsufficientPermission
 )
+from app.notifications.service import NotificationService
+
+notification_service = NotificationService()
 
 
 class JobService:
@@ -178,6 +182,10 @@ class JobService:
         # Increment the likes count in the Jobs table
         job = await session.exec(select(Jobs).where(Jobs.uid == job_uid))
         job_instance = job.first()
+        # trigger the notification
+        """Due to the username change feature, here we only get the user_id. Username will be displayed only when viewing notifications."""
+        message = f"Your job offer {job_instance.title} was liked by "  # will add name using concatenation when displaying notifications
+        await notification_service.trigger_notification(str(job_instance.author_uid), user_uid, message, session)
 
         if job_instance:
             job_instance.likes += 1
@@ -200,6 +208,9 @@ class JobService:
         await session.exec(delete(JobLikes).where(JobLikes.job_id == job_uid, JobLikes.user_id == user_uid))
         # Decrement the likes count in the Jobs table
         job_instance = await session.get(Jobs, job_uid)
+        # delete the notification based on sender and recipient ids
+        await session.exec(delete(Notification).where(Notification.sender_uid == user_uid,
+                                                      Notification.recipient_uid == job_instance.author_uid))
         if job_instance:
             job_instance.likes -= 1  # Decrement the likes count
 

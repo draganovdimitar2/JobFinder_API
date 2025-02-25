@@ -1,9 +1,12 @@
+import uuid
+
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
 from app.applications.schemas import ApplicationRequestModel, ApplicationUpdateModel
-from app.jobs.service import JobService
+from app.jobs.service import JobService, NotificationService
 from app.auth.service import UserService
 from datetime import datetime
+from app.notifications.service import NotificationService
 from app.db.models import (
     Jobs,
     User,
@@ -17,6 +20,7 @@ from app.errors import (
     InsufficientPermission
 )
 
+notification_service = NotificationService()
 job_service = JobService()
 user_service = UserService()
 
@@ -145,7 +149,15 @@ class ApplicationService:
             raise InsufficientPermission()
 
         application.status = update_model.status
-
+        # trigger the webhook and add the notification to db
+        """Logic will fail if the organization change the job title before the notification has been seen by the user."""
+        message = f"Your application status to {job.title} was updated to {application.status}"
+        await notification_service.trigger_notification(
+            application.user_uid,
+            uuid.UUID(user_id),  # conv from str to uuid, because of our db model, otherwise we will get TypeError
+            message,
+            session,
+            application_id=application.uid)
         await session.commit()
 
         application_dict = {

@@ -138,6 +138,9 @@ class Notification(SQLModel, table=True):
         default_factory=datetime.utcnow,
         sa_column=Column(pg.TIMESTAMP, nullable=False)
     )
+    # Fields for linking notifications to jobs or applications (based on notification type)
+    job_id: Optional[uuid.UUID] = Field(foreign_key="jobs.uid", default=None, nullable=True)
+    application_id: Optional[uuid.UUID] = Field(foreign_key="applications.uid", default=None, nullable=True)
 
     # Relationships
     recipient: 'User' = Relationship(

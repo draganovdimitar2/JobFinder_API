@@ -184,8 +184,9 @@ class JobService:
         job_instance = job.first()
         # trigger the notification
         """Due to the username change feature, here we only get the user_id. Username will be displayed only when viewing notifications."""
-        message = f"Your job offer {job_instance.title} was liked by "  # will add name using concatenation when displaying notifications
-        await notification_service.trigger_notification(str(job_instance.author_uid), user_uid, message, session)
+        message = f"Your job offer {job_instance.title} was liked by "  # will add the username using concatenation when displaying notifications
+        await notification_service.trigger_notification(str(job_instance.author_uid), user_uid, message, session,
+                                                        job_id=job_instance.uid)  # add the job_uid, so we can later fetch the job
 
         if job_instance:
             job_instance.likes += 1

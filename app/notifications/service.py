@@ -1,7 +1,7 @@
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
 from app.db.models import Notification
-from app.db.models import User
+from app.db.models import User, Applications
 from app.notifications.webhook import unread_notification_webhook as webhook
 from typing import Optional
 from sqlalchemy.sql.expression import or_, and_
@@ -10,6 +10,7 @@ import uuid
 
 
 class NotificationService:
+
     async def trigger_notification(
             self,
             recipient_uid: uuid.UUID,
@@ -54,7 +55,7 @@ class NotificationService:
 
         await webhook(str(recipient_uid), session)  # Trigger webhook to update unread count
 
-    async def get_all_notifications(self, user_uid: str, session: AsyncSession) -> list:
+    async def get_all_notifications(self, user_uid: str, session: AsyncSession):
         """Fetch all notification."""
 
         statement = select(Notification).where(Notification.recipient_uid == user_uid)
@@ -75,10 +76,14 @@ class NotificationService:
                 "sender_name": sender_name,
                 "message": notification.message,
                 "is_read": notification.is_read,
-                "created_at": notification.created_at
+                "created_at": notification.created_at,
+                "job_id": str(notification.job_id) if notification.job_id else None,
+                "application_id": str(notification.application_id) if notification.application_id else None
             }
             notification_list.append(notification)
 
+        if not notification_list:  # if notifications are empty
+            return {"message": "You don't have notifications yet"}
         return notification_list
 
     async def get_notification_by_id(self, notification_id: str, session: AsyncSession) -> dict:
@@ -88,22 +93,58 @@ class NotificationService:
         notification = result.scalars().first()
         return notification
 
-    async def check_notification_existence(
-            self,
-            credentials: str,
-            recipient_uid: uuid.UUID,
-            sender_uid: uuid.UUID,
-            session: AsyncSession
-    ) -> bool:
-        """Return boolean value based on whether notification exists"""
-        statement = select(Notification).where(
-            and_(
-                # check whether application_id or job_id are the same, and whether recipient_uid and sender_uid are the same.
-                or_(Notification.application_id == credentials, Notification.job_id == credentials),
-                Notification.recipient_uid == recipient_uid,
-                Notification.sender_uid == sender_uid
-            )
-        )
-        result = await session.execute(statement)
-        notification = result.first()
-        return bool(notification)  # Return True if a notification exists, else False
+    async def get_notification_details(self, notification_id: str, session: AsyncSession) -> dict:
+        """Fetch job and application details based on notification_id"""
+        from app.jobs.service import JobService  # to prevent ImportError (circular import)
+        job_service = JobService()
+
+        notification = await self.get_notification_by_id(notification_id, session)
+        if not notification:
+            return {"message": "Notification not found!"}
+
+        # Set notification is_read to True
+        notification.is_read = True
+        session.add(notification)
+        await session.commit()
+
+        if notification.job_id is not None:  # return job details
+            job = await job_service.get_job_data(notification.job_uid, session)
+            if not job:  # if unable to fetch the job
+                return {"message": "Job is deleted or inactive!"}
+            else:
+                return {
+                    "_id": str(job.uid),
+                    "title": job.title,
+                    "description": job.description,
+                    "type": job.type,
+                    "likes": job.likes,
+                    "category": job.category,
+                    "author_uid": str(job.author_uid),
+                    "isActive": job.is_active
+                }
+        # If it's not a job like notification, fetch application details + job details
+        statement = select(Applications).where(Applications.uid == notification.application_id)
+        result = await session.exec(statement)
+        application = result.first()  # fetch the application
+        if not application:
+            return {"message": "Application not found or deleted!"}
+
+        job = await job_service.get_job_data(application.job_uid, session)
+        if not job:  # if job is not found
+            return {"message": "Job is deleted or inactive!"}
+        else:
+            isLiked = await job_service.like_checker(str(application.user_uid), str(job.uid), session)
+            authorName = await job_service.get_author_name(str(job.author_uid), session)
+            return {
+                "_id": str(job.uid),
+                "title": job.title,
+                "description": job.description,
+                "type": job.type,
+                "likes": job.likes,
+                "isLiked": isLiked,  # whether user has liked the job
+                "category": job.category,
+                "author_uid": str(job.author_uid),
+                "authorName": authorName,
+                "isActive": job.is_active,
+                "status": application.status  # add the application status
+            }

@@ -3,7 +3,7 @@ from sqlmodel import select
 from app.db.models import Notification
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-WEBHOOK_URL = "https://webhook.site/52d40ef4-0032-4275-ba61-de2500bd8464"  # url to the main page where push notifications will show
+WEBHOOK_URL = "https://diman-job-ui.vercel.app/jobs"  # url to the main page where notifications will show
 
 
 async def unread_notification_webhook(user_uid: str, session: AsyncSession):

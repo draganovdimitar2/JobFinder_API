@@ -54,6 +54,16 @@ class AlreadyLiked(JobFinderException):
     pass
 
 
+class NotificationNotFound(JobFinderException):
+    """Notification is not Found!"""
+    pass
+
+
+class NotificationInsufficientPermission(JobFinderException):
+    """You not have the necessary permissions to view this notification!"""
+    pass
+
+
 class LikeNotGiven(JobFinderException):
     """You haven't liked this job"""
     pass
@@ -161,6 +171,26 @@ def register_all_errors(app: FastAPI):
             initial_detail={
                 "message": "Author not found!",
                 "error_code": "author_not_found",
+            },
+        ),
+    )
+    app.add_exception_handler(
+        NotificationNotFound,
+        create_exception_handler(
+            status_code=status.HTTP_404_NOT_FOUND,
+            initial_detail={
+                "message": "Notification not found!",
+                "error_code": "notification_not_found",
+            },
+        ),
+    )
+    app.add_exception_handler(
+        NotificationInsufficientPermission,
+        create_exception_handler(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            initial_detail={
+                "message": "You not have the necessary permissions to view this notification!",
+                "error_code": "insufficient_permissions",
             },
         ),
     )

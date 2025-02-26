@@ -1,3 +1,5 @@
+import uuid
+
 from sqlmodel.ext.asyncio.session import AsyncSession
 from .schemas import JobCreateModel, JobUpdateModel
 from sqlmodel import select, delete
@@ -185,7 +187,7 @@ class JobService:
         # trigger the notification
         """Due to the username change feature, here we only get the user_id. Username will be displayed only when viewing notifications."""
         message = f"Your job offer {job_instance.title} was liked by "  # will add the username using concatenation when displaying notifications
-        await notification_service.trigger_notification(str(job_instance.author_uid), user_uid, message, session,
+        await notification_service.trigger_notification(job_instance.author_uid, uuid.UUID(user_uid), message, session,
                                                         job_id=job_instance.uid)  # add the job_uid, so we can later fetch the job
 
         if job_instance:
@@ -209,9 +211,10 @@ class JobService:
         await session.exec(delete(JobLikes).where(JobLikes.job_id == job_uid, JobLikes.user_id == user_uid))
         # Decrement the likes count in the Jobs table
         job_instance = await session.get(Jobs, job_uid)
-        # delete the notification based on sender and recipient ids
+        # delete the notification based on sender_id, recipient_id and job_id
         await session.exec(delete(Notification).where(Notification.sender_uid == user_uid,
-                                                      Notification.recipient_uid == job_instance.author_uid))
+                                                      Notification.recipient_uid == job_instance.author_uid,
+                                                      Notification.job_id == job_uid))
         if job_instance:
             job_instance.likes -= 1  # Decrement the likes count
 

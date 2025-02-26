@@ -4,7 +4,6 @@ from app.db.models import Notification
 from app.db.models import User, Applications
 from app.notifications.webhook import unread_notification_webhook as webhook
 from typing import Optional
-from sqlalchemy.sql.expression import or_, and_
 from datetime import datetime
 import uuid
 
@@ -23,37 +22,44 @@ class NotificationService:
     ):
         """Create a notification and trigger the webhook for unread count updates."""
         # Check if a notification already exists
-        statement = select(Notification).where(
-            and_(
+        if "was liked by" in message:  # if notification is related to job_likes
+            statement = select(Notification).where(
+                # we don't check for application_id because it is not present
                 Notification.recipient_uid == recipient_uid,
                 Notification.sender_uid == sender_uid,
-                or_(
-                    Notification.application_id == application_id,
-                    Notification.job_id == job_id
-                )
+                Notification.message == message,
+                Notification.job_id == job_id
             )
-        )
+        else:  # if notification is related to application_status
+            statement = select(Notification).where(
+                # here we only check for application_id because we don't have job_id
+                Notification.recipient_uid == recipient_uid,
+                Notification.sender_uid == sender_uid,
+                Notification.application_id == application_id
+            )
+
         result = await session.execute(statement)
         existing_notification = result.scalars().first()
 
         if existing_notification:
-            # Update the existing notification
-            existing_notification.message = message  # Update the message with the latest status
-            existing_notification.created_at = datetime.utcnow()  # Update timestamp
+            # update the existing notification
+            existing_notification.message = message  # update the message with the latest status
+            existing_notification.created_at = datetime.utcnow()  # update timestamp
         else:
-            # Create a new notification if none exists
+            # create a new notification if none exists
             notification = Notification(
                 recipient_uid=recipient_uid,
                 sender_uid=sender_uid,
                 message=message,
                 job_id=job_id,
                 application_id=application_id
+
             )
             session.add(notification)
 
         await session.commit()
 
-        await webhook(str(recipient_uid), session)  # Trigger webhook to update unread count
+        await webhook(str(recipient_uid), session)  # trigger webhook to update unread count
 
     async def get_all_notifications(self, user_uid: str, session: AsyncSession):
         """Fetch all notification."""

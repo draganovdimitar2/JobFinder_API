@@ -1,5 +1,4 @@
 import uuid
-
 from sqlmodel.ext.asyncio.session import AsyncSession
 from .schemas import JobCreateModel, JobUpdateModel
 from sqlmodel import select, delete

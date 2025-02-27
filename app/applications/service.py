@@ -3,7 +3,7 @@ import uuid
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
 from app.applications.schemas import ApplicationRequestModel, ApplicationUpdateModel
-from app.jobs.service import JobService, NotificationService
+from app.jobs.service import JobService
 from app.auth.service import UserService
 from datetime import datetime
 from app.notifications.service import NotificationService
@@ -20,8 +20,9 @@ from app.errors import (
     InsufficientPermission
 )
 
-notification_service = NotificationService()
+
 job_service = JobService()
+notification_service = NotificationService()
 user_service = UserService()
 
 
@@ -43,7 +44,7 @@ class ApplicationService:
             select(Applications).where(Applications.user_uid == user_id, Applications.job_uid == job_id))
         application_existence = application_checker.first()
 
-        if application_existence:  # if like is already given, raise an exception
+        if application_existence:  # if user has already applied for this offer, raise an exception
             raise AlreadyApplied()
 
         application = Applications(
@@ -52,6 +53,10 @@ class ApplicationService:
             coverLetter=cover_letter.coverLetter,
             appliedAt=datetime.now()  # Set the appliedAt field
         )
+        # trigger the notification
+        message = f"You have one new applicant for your job - {job['title']}"
+        await notification_service.trigger_notification(uuid.UUID(job['author_uid']), uuid.UUID(user_id), message,
+                                                        session, job_id=uuid.UUID(job_id))
         # Add the application to the session
         session.add(application)
 

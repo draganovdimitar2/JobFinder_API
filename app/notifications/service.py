@@ -74,7 +74,7 @@ class NotificationService:
             statement = select(User.username).where(User.uid == str(notification.sender_uid))
             result = await session.execute(statement)
             sender_name = result.scalars().first()
-            if notification.job_id is not None:  # ensure that concatenation will be made for the right notification
+            if notification.job_id is not None and 'new applicant' not in notification.message:  # ensure that concatenation will be made for the right notification
                 notification.message += sender_name  # add the current username (in case user has changed it)
 
             notification = {
@@ -101,7 +101,8 @@ class NotificationService:
 
     async def get_notification_details(self, notification_id: str, session: AsyncSession) -> dict:
         """Fetch job and application details based on notification_id"""
-        from app.jobs.service import JobService  # to prevent ImportError (circular import)
+
+        from app.jobs.service import JobService
         job_service = JobService()
 
         notification = await self.get_notification_by_id(notification_id, session)
@@ -114,11 +115,11 @@ class NotificationService:
         await session.commit()
 
         if notification.job_id is not None:  # return job details
-            job = await job_service.get_job_data(notification.job_uid, session)
+            job = await job_service.get_job_data(str(notification.job_id), session)
             if not job:  # if unable to fetch the job
                 return {"message": "Job is deleted or inactive!"}
             else:
-                return {
+                job_dict = {
                     "_id": str(job.uid),
                     "title": job.title,
                     "description": job.description,
@@ -128,6 +129,19 @@ class NotificationService:
                     "author_uid": str(job.author_uid),
                     "isActive": job.is_active
                 }
+                if "new applicant" in notification.message:  # if notification is for new applicant, we add application details in job_dict
+                    statement = select(Applications).where(Applications.job_uid == job_dict['_id'],
+                                                           Applications.user_uid == notification.sender_uid)
+                    result = await session.exec(statement)
+                    application = result.first()
+                    statement = select(User).where(Applications.user_uid == User.uid)
+                    result = await session.exec(statement)
+                    user = result.first()
+                    job_dict['applicationCoverLetter'] = application.coverLetter
+                    job_dict['application_status'] = application.status
+                    job_dict['appliedAt'] = application.appliedAt
+                    job_dict['applicantUsername'] = user.username
+                return job_dict
         # If it's not a job like notification, fetch application details + job details
         statement = select(Applications).where(Applications.uid == notification.application_id)
         result = await session.exec(statement)

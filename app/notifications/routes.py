@@ -28,7 +28,7 @@ async def get_notification_details(notification_id: str,
     except:
         raise NotificationNotFound()
 
-    if str(notification.recipient) != str(current_user.uid):  # if user is trying to view other user's notifications
+    if str(notification.recipient_uid) != str(current_user.uid):  # if user is trying to view other user's notifications
         raise NotificationInsufficientPermission()
 
     return await notification_service.get_notification_details(notification_id, session)

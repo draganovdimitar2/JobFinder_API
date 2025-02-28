@@ -17,7 +17,7 @@ app = FastAPI(
                 "- Organizations: Can publish job postings, view applicants, and manage applications.\n\n"
 
                 "This API supports role-based access control (RBAC) to ensure that each user can perform actions appropriate to their role.\n\n"
-                "Notification Center: Implemented using webhooks. Notifications are triggered when a job is liked, an application is sent, or an application status is changed",
+                "Notification Center: Implemented using webhooks. Notifications are triggered when a job is liked, an application is sent, or an application status is changed.",
     version=version,
     contact={
         'name': 'Dimitar Draganov',

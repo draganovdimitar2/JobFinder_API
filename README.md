@@ -34,6 +34,15 @@ The Job Finder API application will feature two types of users: **Organizations*
 - **Manage Applications**: Can approve or reject candidates.
 - **Deactivate Account**: Can deactivate (delete) their account, which will make all their job postings inactive.
 
+## Notification Center
+The JobFinder API includes a notification center powered by webhooks. Notifications are triggered in the following cases:
+
+- When a job posting is liked.
+- When an application is submitted.
+- When the status of an application changes (approved/rejected).
+
+This ensures that both job seekers and organizations stay updated on relevant actions in real time.
+
 ## Technical Requirements
 
 Each object must meet the following requirements:

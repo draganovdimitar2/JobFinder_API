@@ -5,7 +5,8 @@ from app.db.main import get_session
 from app.auth.service import UserService
 from app.auth.dependencies import RoleChecker, CustomTokenBearer
 from .security import verify_password, create_access_token
-from fastapi import APIRouter, Depends
+from app.auth.service import upload_to_storage
+from fastapi import APIRouter, Depends, UploadFile, File
 from app.auth.schemas import (
     UserCreateModel,
     UserLoginModel,
@@ -176,3 +177,20 @@ async def change_user_password(user_data: UserPasswordChangeModel,
         return response
     except HTTPException as e:
         raise e
+
+
+@auth_router.put("/user/{user_uid}/upload_avatar")
+async def upload_avatar(token_details: dict = Depends(access_token_bearer), avatar: UploadFile = File(...),
+                        session: AsyncSession = Depends(get_session)) -> dict:
+    """Endpoint for uploading user avatar (profile picture)"""
+
+    # upload to Azure
+    avatar_url = await upload_to_storage(avatar, token_details['id'])
+
+    # update user record in the database with the new avatar URL
+    await user_service.updateUser(
+        user_id=token_details['id'],
+        user_update=UserUpdateRequestModel(avatar_url=avatar_url),
+        session=session
+    )
+    return {"message": "Avatar uploaded and saved successfully", "avatar_url": avatar_url}

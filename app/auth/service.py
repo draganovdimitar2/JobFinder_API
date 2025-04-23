@@ -23,6 +23,12 @@ from app.errors import (
     InvalidCredentials,
     InvalidPassword
 )
+from app.config import Config
+from azure.storage.blob import BlobServiceClient, ContentSettings
+from fastapi import UploadFile
+import uuid
+import os
+from urllib.parse import urlparse, unquote
 
 
 class UserService:
@@ -139,6 +145,10 @@ class UserService:
         if email_existence and email_existence.email != user.email:
             raise UserEmailAlreadyExists()
 
+        # Update avatar_url if it's provided
+        if user_update.avatar_url:
+            user.avatar_url = user_update.avatar_url
+
         # Update fields only if new values are provided
         if user_update.username:
             user.username = user_update.username
@@ -186,3 +196,33 @@ class UserService:
 
         await session.commit()  # add the changed password to db
         return {"message": "Password changed successfully"}
+
+
+# initialize blob service using account URL + SAS token
+blob_service_client = BlobServiceClient(
+    account_url=Config.AZURE_BLOB_ACCOUNT_URL,
+    credential=Config.AZURE_BLOB_SAS_TOKEN
+)
+container_client = blob_service_client.get_container_client(Config.AZURE_BLOB_CONTAINER_NAME)
+
+
+async def upload_to_storage(file: UploadFile, user_id: str) -> str:
+    try:
+        # Use consistent blob name
+        file_extension = os.path.splitext(file.filename)[-1]
+        blob_name = f"profile_pictures/{user_id}{file_extension}"
+
+        blob_client = container_client.get_blob_client(blob_name)
+        file_content = await file.read()
+        content_settings = ContentSettings(content_type=file.content_type)
+
+        # Overwrite existing file if it exists
+        blob_client.upload_blob(
+            file_content,
+            overwrite=True,  # override the old avatar picture
+            content_settings=content_settings
+        )
+
+        return blob_client.url
+    except Exception as e:
+        raise RuntimeError(f"Failed to upload avatar: {str(e)}")

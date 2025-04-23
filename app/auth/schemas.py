@@ -21,6 +21,7 @@ class UserUpdateRequestModel(BaseModel):
     email: Optional[str] = ''
     firstName: Optional[str] = ''
     lastName: Optional[str] = ''
+    avatar_url: Optional[str] = None
 
 
 class UserPasswordChangeModel(BaseModel):

@@ -20,8 +20,8 @@ from app.errors import (
     UserNotFound,
     UserUsernameAlreadyExists,
     UserEmailAlreadyExists,
-    InvalidCredentials,
-    InvalidPassword
+    InvalidPictureFormat,
+    InvalidPassword,
 )
 from app.config import Config
 from azure.storage.blob import BlobServiceClient, ContentSettings
@@ -206,17 +206,18 @@ blob_service_client = BlobServiceClient(
 container_client = blob_service_client.get_container_client(Config.AZURE_BLOB_CONTAINER_NAME)
 
 
-async def upload_to_storage(file: UploadFile, user_id: str) -> str:
+async def upload_avatar_to_storage(file: UploadFile, user_id: str) -> str:
+    file_extension = os.path.splitext(file.filename)[-1]
+    if file_extension.lower() not in ['.jpg', '.jpeg', '.png']:  # valid picture formats
+        raise InvalidPictureFormat()
+
     try:
-        # Use consistent blob name
-        file_extension = os.path.splitext(file.filename)[-1]
         blob_name = f"profile_pictures/{user_id}{file_extension}"
 
         blob_client = container_client.get_blob_client(blob_name)
         file_content = await file.read()
         content_settings = ContentSettings(content_type=file.content_type)
 
-        # Overwrite existing file if it exists
         blob_client.upload_blob(
             file_content,
             overwrite=True,  # override the old avatar picture

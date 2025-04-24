@@ -114,6 +114,11 @@ class InvalidApplicationStatus(JobFinderException):
     pass
 
 
+class InvalidPictureFormat(JobFinderException):
+    """Picture format should be .jpeg, .jpg or .png"""
+    pass
+
+
 def create_exception_handler(
         status_code: int, initial_detail: Any
 ) -> Callable[[Request, Exception], JSONResponse]:
@@ -131,6 +136,16 @@ def register_all_errors(app: FastAPI):
             initial_detail={
                 "message": "User with this email already exists",
                 "error_code": "user_exists",
+            },
+        ),
+    )
+    app.add_exception_handler(
+        InvalidPictureFormat,
+        create_exception_handler(
+            status_code=status.HTTP_403_FORBIDDEN,
+            initial_detail={
+                "message": "Picture format should be .jpeg, .jpg or .png",
+                "error_code": "invalid_picture_format",
             },
         ),
     )

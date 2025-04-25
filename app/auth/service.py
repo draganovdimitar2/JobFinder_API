@@ -26,9 +26,14 @@ from app.errors import (
 from app.config import Config
 from azure.storage.blob import BlobServiceClient, ContentSettings
 from fastapi import UploadFile
-import uuid
 import os
-from urllib.parse import urlparse, unquote
+
+# initialize blob service using account URL + SAS token
+blob_service_client = BlobServiceClient(
+    account_url=Config.AZURE_BLOB_ACCOUNT_URL,
+    credential=Config.AZURE_BLOB_SAS_TOKEN
+)
+container_client = blob_service_client.get_container_client(Config.AZURE_BLOB_CONTAINER_NAME)
 
 
 class UserService:
@@ -197,33 +202,49 @@ class UserService:
         await session.commit()  # add the changed password to db
         return {"message": "Password changed successfully"}
 
+    async def upload_avatar_to_storage(self, file: UploadFile, user_id: str) -> str:
+        file_extension = os.path.splitext(file.filename)[-1]
+        if file_extension.lower() not in ['.jpg', '.jpeg', '.png']:  # valid picture formats
+            raise InvalidPictureFormat()
 
-# initialize blob service using account URL + SAS token
-blob_service_client = BlobServiceClient(
-    account_url=Config.AZURE_BLOB_ACCOUNT_URL,
-    credential=Config.AZURE_BLOB_SAS_TOKEN
-)
-container_client = blob_service_client.get_container_client(Config.AZURE_BLOB_CONTAINER_NAME)
+        try:
+            blob_name = f"profile_pictures/{user_id}{file_extension}"
 
+            blob_client = container_client.get_blob_client(blob_name)
+            file_content = await file.read()
+            content_settings = ContentSettings(content_type=file.content_type)
 
-async def upload_avatar_to_storage(file: UploadFile, user_id: str) -> str:
-    file_extension = os.path.splitext(file.filename)[-1]
-    if file_extension.lower() not in ['.jpg', '.jpeg', '.png']:  # valid picture formats
-        raise InvalidPictureFormat()
+            blob_client.upload_blob(
+                file_content,
+                overwrite=True,  # override the old avatar picture
+                content_settings=content_settings
+            )
 
-    try:
-        blob_name = f"profile_pictures/{user_id}{file_extension}"
+            return blob_client.url
+        except Exception as e:
+            raise RuntimeError(f"Failed to upload avatar: {str(e)}")
 
-        blob_client = container_client.get_blob_client(blob_name)
-        file_content = await file.read()
-        content_settings = ContentSettings(content_type=file.content_type)
+    async def delete_avatar_from_storage(self, user_id: str, session: AsyncSession) -> dict:
+        extensions = ['.jpg', '.jpeg', '.png']  # all supported extensions
 
-        blob_client.upload_blob(
-            file_content,
-            overwrite=True,  # override the old avatar picture
-            content_settings=content_settings
-        )
+        deleted = False  # flag var
+        for ext in extensions:
+            blob_name = f"profile_pictures/{user_id}{ext}"
+            blob_client = container_client.get_blob_client(blob_name)
 
-        return blob_client.url
-    except Exception as e:
-        raise RuntimeError(f"Failed to upload avatar: {str(e)}")
+            try:
+                if blob_client.exists():
+                    blob_client.delete_blob()
+                    deleted = True
+            except Exception as e:
+                raise RuntimeError(f"Failed to delete avatar: {str(e)}")
+
+        user = await self.get_user_by_uid(user_id, session)
+        if user:
+            user.avatar_url = None
+            await session.commit()
+
+        if deleted:
+            return {"message": "Avatar deleted successfully."}
+        else:
+            return {"message": "No avatar found to delete."}
